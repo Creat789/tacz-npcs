@@ -1,10 +1,12 @@
 package com.corrinedev.tacznpcs.common.entity;
 
+import com.corrinedev.tacznpcs.common.entity.behavior.TaczShootAttack;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
 import com.tacz.guns.api.event.common.GunFireEvent;
+import com.tacz.guns.api.item.GunTabType;
 import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.api.item.gun.FireMode;
 import com.tacz.guns.entity.EntityKineticBullet;
@@ -23,26 +25,19 @@ import com.tacz.guns.resource.pojo.data.gun.InaccuracyType;
 import com.tacz.guns.sound.SoundManager;
 import com.tacz.guns.util.CycleTaskHelper;
 import it.unimi.dsi.fastutil.Pair;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import mod.azure.azurelib.animatable.GeoEntity;
-import mod.azure.azurelib.core.animatable.instance.AnimatableInstanceCache;
-import mod.azure.azurelib.core.animation.AnimatableManager;
-import mod.azure.azurelib.core.animation.AnimationController;
-import mod.azure.azurelib.core.animation.RawAnimation;
-import mod.azure.azurelib.util.AzureLibUtil;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.behavior.Behavior;
-import net.minecraft.world.entity.animal.IronGolem;
-import net.minecraft.world.entity.animal.Turtle;
-import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.player.Player;
@@ -56,9 +51,11 @@ import net.tslat.smartbrainlib.api.core.SmartBrainProvider;
 import net.tslat.smartbrainlib.api.core.behaviour.ExtendedBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.FirstApplicableBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.OneRandomBehaviour;
-import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableRangedAttack;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeAttack;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetWalkTargetToAttackTarget;
@@ -67,24 +64,30 @@ import net.tslat.smartbrainlib.api.core.behaviour.custom.target.SetPlayerLookTar
 import net.tslat.smartbrainlib.api.core.behaviour.custom.target.SetRandomLookTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.target.TargetOrRetaliate;
 import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
-import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyLivingEntitySensor;
-import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyPlayersSensor;
 import org.jetbrains.annotations.NotNull;
-import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import software.bernie.geckolib.animatable.GeoEntity;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.AnimatableManager;
+import software.bernie.geckolib.core.animation.AnimationController;
+import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.util.GeckoLibUtil;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrainOwner<BanditEntity>, RangedAttackMob, IGunOperator {
-    private final AnimatableInstanceCache cache = AzureLibUtil.createInstanceCache(this);
-    public static final EntityType<BanditEntity> BANDIT;
-    protected BanditEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
+public abstract class AbstractScavEntity extends PathfinderMob implements GeoEntity, SmartBrainOwner<AbstractScavEntity>, RangedAttackMob, IGunOperator {
+    private final AnimatableInstanceCache cache =  GeckoLibUtil.createInstanceCache(this);
+    public int rangedCooldown = 0;
+    public boolean firing = true;
+    public int collectiveShots = 0;
+    public boolean panic = false;
+    public int paniccooldown = 0;
+    public boolean isReloading = false;
+    protected AbstractScavEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
         initialGunOperateData();
 
@@ -99,21 +102,21 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
         this.tacz$reload = new LivingEntityReload(this.tacz$shooter, this.tacz$data, this.tacz$draw, this.tacz$shoot);
         this.tacz$speed = new LivingEntitySpeedModifier(this.tacz$shooter, this.tacz$data);
     }
-    static {
-        BANDIT = EntityType.Builder.of(BanditEntity::new, MobCategory.MONSTER).sized(0.65f, 1.95f).build("bandit");
-    }
+
     public static AttributeSupplier.Builder createLivingAttributes() {
-        return Monster.createMonsterAttributes().add(Attributes.FOLLOW_RANGE, 35.0D).add(Attributes.MOVEMENT_SPEED, (double)0.23F).add(Attributes.ATTACK_DAMAGE, 3.0D).add(Attributes.ARMOR, 2.0D);
+        return Monster.createMonsterAttributes().add(Attributes.FOLLOW_RANGE, 64.0D).add(Attributes.MOVEMENT_SPEED, (double)0.35F).add(Attributes.ATTACK_DAMAGE, 3.0D).add(Attributes.ARMOR, 2.0D);
     }
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-            controllers.add(new AnimationController<>(this, "controller", 10, event ->
+            controllers.add(new AnimationController<>(this, "controller", 5, event ->
             {
                 return event.setAndContinue(
-                        // If moving, play the walking animation
-                        event.isMoving() ? RawAnimation.begin().thenLoop("walk"):
+                        // If sprinting, play the run animation
+                        this.isReloading ? RawAnimation.begin().thenPlayAndHold("reload_upper") : event.getAnimatable().isSprinting() ? RawAnimation.begin().thenLoop("run") :this.getTarget() != null ? RawAnimation.begin().thenLoop("aim_upper") :
+                                // If moving, play the walk animation
+                                event.isMoving() ? RawAnimation.begin().thenLoop("walk"):
                                 // If not moving, play the idle animation
-                                RawAnimation.begin().thenLoop("idle"));
+                                  RawAnimation.begin().thenLoop("idle"));
             })
                     // Sets a Sound KeyFrame
                     .setSoundKeyframeHandler(event -> {
@@ -130,44 +133,93 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return cache;
     }
-
-    @Override
-    public List<? extends ExtendedSensor<? extends BanditEntity>> getSensors() {
-        return ObjectArrayList.of(
-                new NearbyPlayersSensor<>(),
-                new NearbyLivingEntitySensor<BanditEntity>()
-                        .setPredicate((target, entity) ->
-                                target instanceof Player ||
-                                        target instanceof IronGolem ||
-                                        target instanceof Wolf ||
-                                        (target instanceof Turtle turtle && turtle.isBaby() && !turtle.isInWater())));
-    }
-
-    @Override
-    public BrainActivityGroup<? extends BanditEntity> getCoreTasks() {
+    public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                new LookAtTarget<>().runFor((entity) -> entity.getRandom().nextIntBetweenInclusive(40, 300)),
+                new Panic<>().setRadius(32).stopIf((e)->!BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(100, 140);}),
+
+                (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.05f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()),
+                (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(40, 300)).stopIf((e)-> this.getTarget() == null),
                 new MoveToWalkTarget<>()});
     }
 
-    @Override
-    public BrainActivityGroup<? extends BanditEntity> getIdleTasks() {
-        return BrainActivityGroup.idleTasks(new Behavior[]{
-                new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{new TargetOrRetaliate<>(),
-                        new SetPlayerLookTarget<>(), new SetRandomLookTarget<>()}),
-                new OneRandomBehaviour<>(new ExtendedBehaviour[]{(new SetRandomWalkTarget<>()).speedModifier(1.0F),
-                        new Idle<>().runFor((entity) -> entity.getRandom().nextInt(30, 60))
-                })});
+    public BrainActivityGroup<? extends AbstractScavEntity> getIdleTasks() {
+        return BrainActivityGroup.idleTasks(new Behavior[]{new FirstApplicableBehaviour(new ExtendedBehaviour[]{
+                new TargetOrRetaliate<>(),
+                new SetPlayerLookTarget<>(),
+                new SetRandomLookTarget<>()}),
+                new OneRandomBehaviour(new ExtendedBehaviour[]{(
+                        new SetRandomWalkTarget<>()).speedModifier(1.0F),
+                        (new Idle<>()).runFor((entity) -> RandomSource.create().nextInt(30, 60))})});
     }
 
-    @Override
-    public BrainActivityGroup<? extends BanditEntity> getFightTasks() {
+    public BrainActivityGroup<? extends AbstractScavEntity> getFightTasks() {
         return BrainActivityGroup.fightTasks(new Behavior[]{
                 new InvalidateAttackTarget<>(),
-                new SetWalkTargetToAttackTarget<>(),
-                new FirstApplicableBehaviour(new ExtendedBehaviour[]{(
-                        new AnimatableRangedAttack(5).attackRadius(32)).whenStarting((entity) -> {this.setAggressive(true); System.out.println("STARTING RANGED ATTACK"); this.performRangedAttack((LivingEntity) entity, 5);}).whenStopping((entity) -> {this.setAggressive(false);})
-                })});
+                (new SetWalkTargetToAttackTarget<>()).startCondition((entity) ->( !isUsingGun() || !BehaviorUtils.canSee(this, Objects.requireNonNull(this.getTarget()))) && !panic),
+                new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{
+                        (new TaczShootAttack<>(0, 64))
+                                .startCondition((x$0) -> isUsingGun() && !isReloading && !panic && collectiveShots < getStateBurst() && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true; collectiveShots++;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget())),
+                        (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> this.setAggressive(true)).whenStopping((entity) -> this.setAggressive(false))})});
+    }
+    public boolean isUsingGun() {
+        return this.getMainHandItem().getItem() instanceof ModernKineticGunItem;
+    }
+    @Override
+    public abstract List<? extends ExtendedSensor<? extends AbstractScavEntity>> getSensors();
+
+    public @Nullable GunTabType heldGunType() {
+        if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
+            switch (TimelessAPI.getCommonGunIndex(gun.getGunId(this.getMainHandItem())).get().getType()) {
+                case "pistol" : return GunTabType.PISTOL;
+                case "rifle" : return GunTabType.RIFLE;
+                case "sniper" : return GunTabType.SNIPER;
+                case "smg" : return GunTabType.SMG;
+                case "rpg" : return GunTabType.RPG;
+                case "shotgun" : return GunTabType.SHOTGUN;
+                case "mg" : return GunTabType.MG;
+            }
+        }
+            return null;
+    }
+    public static @Nullable GunTabType heldGunType(ItemStack gunStack) {
+        if(gunStack.getItem() instanceof ModernKineticGunItem gun) {
+            switch (TimelessAPI.getCommonGunIndex(gun.getGunId(gunStack)).get().getType()) {
+                case "pistol" : return GunTabType.PISTOL;
+                case "rifle" : return GunTabType.RIFLE;
+                case "sniper" : return GunTabType.SNIPER;
+                case "smg" : return GunTabType.SMG;
+                case "rpg" : return GunTabType.RPG;
+                case "shotgun" : return GunTabType.SHOTGUN;
+                case "mg" : return GunTabType.MG;
+            }
+        }
+        return null;
+    }
+    public int getStateRangedCooldown() {
+        if(heldGunType() != null) {
+            return switch (heldGunType()) {
+                case RIFLE -> 5;
+                case PISTOL -> 3;
+                case SNIPER -> 30;
+                case SHOTGUN -> 10;
+                case SMG, MG -> 1;
+                case RPG -> 100;
+            };
+        }
+        return 60;
+    }
+    int getStateBurst() {
+        if(heldGunType() != null) {
+            return switch (heldGunType()) {
+                case RIFLE -> 3;
+                case PISTOL -> 4;
+                case SNIPER -> 1;
+                case SHOTGUN -> 1;
+                case SMG, MG -> 5;
+                case RPG -> 1;
+            };
+        }
+        return 1;
     }
     protected Brain.@NotNull Provider<?> brainProvider() {
         return new SmartBrainProvider<>(this);
@@ -177,10 +229,48 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     protected void customServerAiStep() {
         this.tickBrain(this);
     }
-
     @Override
     public void tick() {
         onTickServerSide();
+        if(getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
+            if(this.getMainHandItem().getOrCreateTag().getInt("GunCurrentAmmoCount") == 0) {
+                this.reload();
+            }
+        }
+        if (getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
+            if(gun.getCurrentAmmoCount(getMainHandItem()) > 0) {
+                this.isReloading = false;
+            }
+        }
+        if (firing) {
+            if ((System.currentTimeMillis() - tacz$data.shootTimestamp) / 100 > getStateRangedCooldown()) {
+                collectiveShots = 0;
+            }
+        }
+        if(rangedCooldown != 0) {
+            rangedCooldown--;
+        }
+        if(paniccooldown != 0) {
+            paniccooldown--;
+            if(paniccooldown == 1) {
+                panic = false;
+            }
+        }
+        List<ItemEntity> items = this.level().getEntitiesOfClass(ItemEntity.class, this.getBoundingBox().inflate(1.1));
+        if(this.getMainHandItem().isEmpty()) {
+            if (!items.isEmpty()) {
+                for (ItemEntity item : items) {
+                    if (item.getItem().getItem() instanceof ModernKineticGunItem gun) {
+
+                        ItemStack copy = item.getItem().copy();
+
+                        this.setItemInHand(InteractionHand.MAIN_HAND, copy);
+
+                        item.discard();
+                    }
+                }
+            }
+        }
         super.tick();
     }
 
@@ -191,18 +281,15 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     }
     @Override
     public void performRangedAttack(LivingEntity pTarget, float pVelocity) {
-        lookAt(pTarget, 10, 10);
+        //lookAt(pTarget, 10, 10);
         if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
-            System.out.println("Check 1");
             ItemStack gunItem = this.getMainHandItem();
             ResourceLocation gunId = gun.getGunId(gunItem);
             IGun iGun = IGun.getIGunOrNull(gunItem);
             LivingEntity shooter = this;
             if (iGun != null) {
-                System.out.println("CHECK 2");
                 Optional<CommonGunIndex> gunIndexOptional = TimelessAPI.getCommonGunIndex(gunId);
                 if (!gunIndexOptional.isEmpty()) {
-                    System.out.println("CHECK 3");
                     CommonGunIndex gunIndex = (CommonGunIndex)gunIndexOptional.get();
                     BulletData bulletData = gunIndex.getBulletData();
                     GunData gunData = gunIndex.getGunData();
@@ -210,7 +297,6 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
                     FireMode fireMode = iGun.getFireMode(gunItem);
                     AttachmentCacheProperty cacheProperty = this.getCacheProperty();
                     if (cacheProperty != null) {
-                        System.out.println("CHECK 4");
                         InaccuracyType inaccuracyType = InaccuracyType.getInaccuracyType(shooter);
                         float inaccuracy = Math.max(0.0F, (Float)((Map)cacheProperty.getCache("inaccuracy")).get(inaccuracyType));
                         //(Float)((Map)cacheProperty.getCache("inaccuracy")).get(inaccuracyType)
@@ -244,7 +330,7 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
                                     Level world = shooter.level();
 
                                     for(int i = 0; i < bulletAmount; ++i) {
-                                        System.out.println("SPAWNED BULLET");
+                                        collectiveShots++;
                                         this.doSpawnBulletEntity(world, shooter, gunItem, (Float)this.getXRot(), (Float)this.getYRot(), finalSpeed, finalInaccuracy, ammoId, gunId, gunData, bulletData);
                                     }
 
@@ -309,6 +395,7 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     private final LivingEntityReload tacz$reload;
     
     private final LivingEntitySpeedModifier tacz$speed;
+    private boolean drawn = false;
     
     public long getSynShootCoolDown() {
         return (Long) ModSyncedEntityData.SHOOT_COOL_DOWN_KEY.getValue(this.tacz$shooter);
@@ -357,6 +444,7 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     
     public void draw(Supplier<ItemStack> gunItemSupplier) {
         this.tacz$draw.draw(gunItemSupplier);
+        this.drawn = true;
     }
 
     
@@ -367,6 +455,8 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     
     public void reload() {
         this.tacz$reload.reload();
+        this.isReloading = true;
+        //this.triggerAnim("controller", "reload_upper");
     }
 
     public void melee() {
@@ -380,7 +470,7 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
 
     
     public boolean needCheckAmmo() {
-        return this.tacz$ammoCheck.needCheckAmmo();
+        return false;
     }
 
     
@@ -418,6 +508,9 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
     private void onTickServerSide() {
         if (!this.level().isClientSide()) {
             if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
+                if(!drawn) {
+                    this.draw(this::getMainHandItem);
+                }
                 ItemStack gunItem = this.getMainHandItem();
                 ResourceLocation gunId = gun.getGunId(gunItem);
                 IGun iGun = IGun.getIGunOrNull(gunItem);
@@ -451,6 +544,6 @@ public class BanditEntity extends PathfinderMob implements GeoEntity, SmartBrain
             ModSyncedEntityData.IS_AIMING_KEY.setValue(this.tacz$shooter, this.tacz$data.isAiming);
             ModSyncedEntityData.SPRINT_TIME_KEY.setValue(this.tacz$shooter, this.tacz$data.sprintTimeS);
         }
-
     }
+
 }

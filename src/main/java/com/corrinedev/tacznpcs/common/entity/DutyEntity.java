@@ -5,10 +5,11 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.PathfinderMob;
-import net.minecraft.world.entity.ai.sensing.PlayerSensor;
 import net.minecraft.world.entity.animal.IronGolem;
-import net.minecraft.world.entity.animal.Turtle;
 import net.minecraft.world.entity.animal.Wolf;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Skeleton;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -19,20 +20,20 @@ import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyPlayersSensor;
 
 import java.util.List;
 
-public class BanditEntity extends AbstractScavEntity {
-    public static final EntityType<BanditEntity> BANDIT;
+public class DutyEntity extends AbstractScavEntity {
+    public static final EntityType<DutyEntity> DUTY;
 
     static {
-        BANDIT = EntityType.Builder.of(BanditEntity::new, MobCategory.MONSTER).sized(0.65f, 1.95f).build("bandit");
+        DUTY = EntityType.Builder.of(DutyEntity::new, MobCategory.MISC).sized(0.65f, 1.95f).build("duty");
     }
 
-    protected BanditEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
+    protected DutyEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
     }
 
     @Override
     public boolean hurt(DamageSource pSource, float pAmount) {
-        if(pSource.getEntity() instanceof BanditEntity) {
+        if(pSource.getEntity() instanceof DutyEntity) {
             return false;
         }
         return super.hurt(pSource, pAmount);
@@ -41,13 +42,12 @@ public class BanditEntity extends AbstractScavEntity {
     @Override
     public List<? extends ExtendedSensor<? extends AbstractScavEntity>> getSensors() {
         return ObjectArrayList.of(
-                new NearbyPlayersSensor<>(),
+                //new NearbyPlayersSensor<>(),
                 new HurtBySensor<>(),
                 new NearbyLivingEntitySensor<AbstractScavEntity>()
                         .setPredicate((target, entity) ->
-                                target instanceof Player ||
-                                        target instanceof IronGolem ||
-                                        target instanceof Wolf ||
-                                        (target instanceof AbstractVillager)));
+                                target instanceof BanditEntity ||
+                                        (target instanceof Monster) ||
+                                        target.getType().getCategory() == MobCategory.MONSTER));
     }
 }
