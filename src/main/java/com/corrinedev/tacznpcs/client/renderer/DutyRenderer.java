@@ -1,6 +1,6 @@
 package com.corrinedev.tacznpcs.client.renderer;
 
-import com.corrinedev.tacznpcs.common.entity.BanditEntity;
+import com.corrinedev.tacznpcs.client.models.DutyModel;
 import com.corrinedev.tacznpcs.common.entity.DutyEntity;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 

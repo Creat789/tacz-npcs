@@ -32,6 +32,14 @@ public class DutyEntity extends AbstractScavEntity {
     }
 
     @Override
+    public boolean allowInventory(Player player) {
+        if(lastHurtByPlayer != player) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public boolean hurt(DamageSource pSource, float pAmount) {
         if(pSource.getEntity() instanceof DutyEntity) {
             return false;

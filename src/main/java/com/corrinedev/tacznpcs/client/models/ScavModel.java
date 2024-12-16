@@ -1,4 +1,4 @@
-package com.corrinedev.tacznpcs.client.renderer;
+package com.corrinedev.tacznpcs.client.models;
 
 import com.corrinedev.tacznpcs.common.entity.AbstractScavEntity;
 import com.tacz.guns.api.TimelessAPI;

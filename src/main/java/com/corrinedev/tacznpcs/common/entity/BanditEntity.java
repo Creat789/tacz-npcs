@@ -31,6 +31,11 @@ public class BanditEntity extends AbstractScavEntity {
     }
 
     @Override
+    public boolean allowInventory(Player player) {
+        return false;
+    }
+
+    @Override
     public boolean hurt(DamageSource pSource, float pAmount) {
         if(pSource.getEntity() instanceof BanditEntity) {
             return false;

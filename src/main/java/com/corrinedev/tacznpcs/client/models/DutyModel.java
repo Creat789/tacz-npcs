@@ -1,6 +1,5 @@
-package com.corrinedev.tacznpcs.client.renderer;
+package com.corrinedev.tacznpcs.client.models;
 
-import com.corrinedev.tacznpcs.common.entity.BanditEntity;
 import com.corrinedev.tacznpcs.common.entity.DutyEntity;
 import net.minecraft.resources.ResourceLocation;
 
