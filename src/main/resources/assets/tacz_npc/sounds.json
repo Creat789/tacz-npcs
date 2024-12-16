@@ -1,0 +1,38 @@
+{
+  "rifleshoot": {
+    "subtitle": "subtitles.rifleshoot",
+    "sounds": [
+      {
+        "name": "tacz_npc:m4a1_shoot_3p",
+        "stream": false
+      }
+    ]
+  },
+  "pistolshoot": {
+    "subtitle": "subtitles.pistolshoot",
+    "sounds": [
+      {
+        "name": "tacz_npc:glock17_shoot_3p",
+        "stream": false
+      }
+    ]
+  },
+  "scavpistolreload": {
+    "subtitle": "subtitles.scavpistolreload",
+    "sounds": [
+      {
+        "name": "tacz_npc:glock17_reload_tactical",
+        "stream": false
+      }
+    ]
+  },
+  "scavriflereload": {
+    "subtitle": "subtitles.scavriflereload",
+    "sounds": [
+      {
+        "name": "tacz_npc:m4a1_reload_tactical",
+        "stream": false
+      }
+    ]
+  }
+}

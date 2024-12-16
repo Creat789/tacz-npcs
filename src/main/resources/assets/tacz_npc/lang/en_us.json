@@ -1,0 +1,14 @@
+{
+  "subtitles.pistolshoot": "Scav Shoots",
+  "subtitles.rifleshoot": "Scav Shoots",
+  "entity.tacz_npc.usec_scav_pistol": "USEC Officer",
+  "item.tacz_npc.terrorist_scav_spawn_egg": "Bandit Pistol Spawn Egg",
+  "entity.tacz_npc.terrorist_scav_rifle": "Bandit Rifle Scav",
+  "entity.tacz_npc.usec_scav_rifle": "USEC Rifleman",
+  "item.tacz_npc.usec_scav_pistol_spawn_egg": "USEC Pistol Spawn Egg",
+  "subtitles.scavriflereload": "Scav Reloads",
+  "item.tacz_npc.terrorist_scav_rifle_spawn_egg": "Bandit Rifle Spawn Egg",
+  "subtitles.scavpistolreload": "Scav Reloads",
+  "entity.tacz_npc.terrorist_scav": "Pistol Bandit",
+  "item.tacz_npc.usec_scav_rifle_spawn_egg": "USEC Rifleman Spawn Egg"
+}
