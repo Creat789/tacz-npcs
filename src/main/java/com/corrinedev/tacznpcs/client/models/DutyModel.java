@@ -7,6 +7,6 @@ import static com.corrinedev.tacznpcs.NPCS.MODID;
 
 public class DutyModel extends ScavModel<DutyEntity> {
     public DutyModel() {
-        super(new ResourceLocation(MODID, "geo/scav.geo.json"), new ResourceLocation(MODID, "textures/entity/scavpistol.png"));
+        super(new ResourceLocation(MODID, "geo/scav.geo.json"), new ResourceLocation(MODID, "textures/entity/duty.png"));
     }
 }

@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "marbledsarsenal:combat_helmet",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:black_plate_carrier_light",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:swat_armor_leggings",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:swat_armor_boots",
+      "required": false
+    }
+  ]
+}

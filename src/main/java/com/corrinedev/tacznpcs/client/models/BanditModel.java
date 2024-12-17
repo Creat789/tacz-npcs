@@ -7,6 +7,6 @@ import static com.corrinedev.tacznpcs.NPCS.MODID;
 
 public class BanditModel extends ScavModel<BanditEntity> {
     public BanditModel() {
-        super(new ResourceLocation(MODID, "geo/scav.geo.json"), new ResourceLocation(MODID, "textures/entity/terroristnoarmor.png"));
+        super(new ResourceLocation(MODID, "geo/scav.geo.json"), new ResourceLocation(MODID, "textures/entity/bandit.png"));
     }
 }

@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "marbledsarsenal:black_gp5_gas_mask",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:riot_armor_chestplate",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:riot_armor_leggings",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:riot_armor_boots",
+      "required": false
+    }
+  ]
+}

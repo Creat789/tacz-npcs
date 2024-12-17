@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "marbledsarsenal:olive_combat_helmet",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:olive_plate_carrier_light",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:desert_military_armor_leggings",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:desert_military_armor_boots",
+      "required": false
+    }
+  ]
+}

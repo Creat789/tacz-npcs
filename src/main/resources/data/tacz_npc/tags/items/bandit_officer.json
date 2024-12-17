@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "marbledsarsenal:black_military_beret",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:olive_plate_carrier_light",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:riot_armor_leggings",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:riot_armor_boots",
+      "required": false
+    }
+  ]
+}

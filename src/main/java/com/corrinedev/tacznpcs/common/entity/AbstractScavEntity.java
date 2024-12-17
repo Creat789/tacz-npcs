@@ -35,6 +35,8 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.*;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -49,8 +51,11 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.LogicalSide;
 import net.tslat.smartbrainlib.api.SmartBrainOwner;
@@ -92,6 +97,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public boolean panic = false;
     public int paniccooldown = 0;
     public boolean isReloading = false;
+    public boolean isAvoiding = false;
     public SimpleContainer inventory;
     protected AbstractScavEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
@@ -147,6 +153,21 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
             this.setItemSlot(slot, ItemStack.EMPTY);
         }
     }
+
+    @Override
+    public void onEquipItem(EquipmentSlot pSlot, ItemStack pOldItem, ItemStack pNewItem) {
+        boolean flag = pNewItem.isEmpty() && pOldItem.isEmpty();
+        if (!flag && !ItemStack.isSameItemSameTags(pOldItem, pNewItem) && !this.firstTick) {
+            Equipable equipable = Equipable.get(pNewItem);
+            if (equipable != null && !this.isSpectator() && equipable.getEquipmentSlot() == pSlot) {
+                if (this.doesEmitEquipEvent(pSlot)) {
+                    this.gameEvent(GameEvent.EQUIP);
+                }
+            }
+
+        }
+    }
+
     public abstract boolean allowInventory(Player player);
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
@@ -180,11 +201,37 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                new Panic<>().setRadius(32).stopIf((e)->!BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(100, 140);}),
+                new Panic<>().panicIf((e, d) -> d.is(DamageTypes.PLAYER_ATTACK)).setRadius(3).stopIf((e)->!BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(160, 200);}).runFor((e)-> 60),
 
-                (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()),
+                (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
                 (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(40, 300)).stopIf((e)-> this.getTarget() == null),
                 new MoveToWalkTarget<>()});
+    }
+
+    @Override
+    public void die(DamageSource pDamageSource) {
+        super.die(pDamageSource);
+        for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
+            this.spawnAtLocation(inventory.removeItem(i, inventory.getItem(i).getCount()));
+        }
+    }
+
+    @Override
+    protected void dropCustomDeathLoot(DamageSource pSource, int pLooting, boolean pRecentlyHit) {
+        for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
+            this.spawnAtLocation(inventory.removeItem(i, inventory.getItem(i).getCount()));
+        }
+        for(EquipmentSlot equipmentslot : EquipmentSlot.values()) {
+            ItemStack itemstack = this.getItemBySlot(equipmentslot);
+            if (!itemstack.isEmpty()) {
+                if (itemstack.isDamageableItem()) {
+                    itemstack.setDamageValue(itemstack.getMaxDamage() - this.random.nextInt(1 + this.random.nextInt(Math.max(itemstack.getMaxDamage() - 3, 1))));
+                }
+
+                this.spawnAtLocation(itemstack);
+                this.setItemSlot(equipmentslot, ItemStack.EMPTY);
+            }
+        }
     }
 
     public BrainActivityGroup<? extends AbstractScavEntity> getIdleTasks() {
@@ -203,8 +250,8 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 (new SetWalkTargetToAttackTarget<>()).startCondition((entity) ->( !isUsingGun() || !BehaviorUtils.canSee(this, Objects.requireNonNull(this.getTarget()))) && !panic),
                 new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{
                         (new OneRandomBehaviour<>(new ExtendedBehaviour[]{
-                                (new TaczShootAttack<>(0, 64).startCondition((x$0) -> isUsingGun() && !isReloading && !panic && collectiveShots < getStateBurst() && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true; collectiveShots++;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget()))),
-                                (new TaczShootAttack<>(0, 64).startCondition((x$0) -> isUsingGun() && !isReloading && !panic && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget())))
+                                (new TaczShootAttack<>(0, 64).startCondition((x$0) ->  !isAvoiding && isUsingGun() && !isReloading && !panic && collectiveShots < getStateBurst() && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true; collectiveShots++;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget()))),
+                                (new TaczShootAttack<>(0, 64).startCondition((x$0) -> !isAvoiding && heldGunType() != null && Objects.equals(heldGunType(), GunTabType.MG) && isUsingGun() && !isReloading && !panic && !this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {}).stopIf((e) -> this.isReloading || this.panic || this.hasLineOfSight(this.getTarget())))
                         })),
                         (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> this.setAggressive(true)).whenStopping((entity) -> this.setAggressive(false))})});
     }

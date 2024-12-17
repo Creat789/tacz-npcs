@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "marbledsarsenal:olive_helmet_cm7m_gas_mask",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:olive_plate_carrier_heavy",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:desert_military_armor_leggings",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:olive_juggernaut_armor_boots",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "values": [
+    {
+      "id": "marbledsarsenal:helmet_cm8m_gas_mask",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:black_plate_carrier_heavy",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:riot_armor_leggings",
+      "required": false
+    },
+    {
+      "id": "marbledsarsenal:swat_armor_boots",
+      "required": false
+    }
+  ]
+}
