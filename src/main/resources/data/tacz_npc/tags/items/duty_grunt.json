@@ -1,6 +1,10 @@
 {
   "values": [
     {
+      "id": "tacz_npc:rookie",
+      "required": false
+    },
+    {
       "id": "marbledsarsenal:combat_helmet",
       "required": false
     },

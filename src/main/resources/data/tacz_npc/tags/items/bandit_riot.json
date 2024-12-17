@@ -1,6 +1,10 @@
 {
   "values": [
     {
+      "id": "tacz_npc:expert",
+      "required": false
+    },
+    {
       "id": "marbledsarsenal:black_gp5_gas_mask",
       "required": false
     },

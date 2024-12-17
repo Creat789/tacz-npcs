@@ -1,9 +1,8 @@
 package com.corrinedev.tacznpcs.common.entity;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.marblednull.mcore.datagen.loot.ModBlockLootTables;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -12,12 +11,9 @@ import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.LootPool;
-import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSet;
 import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.HurtBySensor;
@@ -25,7 +21,6 @@ import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyLivingEntitySensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyPlayersSensor;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.corrinedev.tacznpcs.NPCS.MODID;
 
@@ -45,7 +40,27 @@ public class BanditEntity extends AbstractScavEntity {
                 inventory.addItem(stack);
             });
         }
+        for(int i = 0; i < this.inventory.getContainerSize() - 1; i++) {
+            if(inventory.getItem(i).getItem() instanceof PatchItem r) {
+                this.setCustomName(Component.literal(r.rank.toString() + " " + this.getName().getString()));
+                inventory.getItem(i).getOrCreateTag().putString("type","bandit");
+                inventory.getItem(i).setHoverName(Component.literal( r.rank.toString() + " Bandit Patch"));
+                switch (r.rank) {
+                    case ROOKIE -> {
 
+                    }
+                    case EXPERIENCED -> {
+
+                    }
+                    case EXPERT -> {
+
+                    }
+                    case VETERAN -> {
+
+                    }
+                }
+            }
+        }
     }
 
     @Override

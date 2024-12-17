@@ -4,9 +4,9 @@
 		{
 			"description": {
 				"identifier": "geometry.unknown",
-				"texture_width": 512,
-				"texture_height": 512,
-				"visible_bounds_width": 3,
+				"texture_width": 64,
+				"texture_height": 64,
+				"visible_bounds_width": 6,
 				"visible_bounds_height": 3.5,
 				"visible_bounds_offset": [0, 1.25, 0]
 			},
@@ -50,39 +50,39 @@
 				{
 					"name": "left_arm",
 					"parent": "bone",
-					"pivot": [5, 22, 0],
+					"pivot": [5, 22, 1],
 					"cubes": [
-						{"origin": [4, 12, -3], "size": [3, 12, 4], "uv": [32, 48]}
+						{"origin": [4, 12, -2], "size": [3, 12, 4], "uv": [32, 48]}
 					]
 				},
 				{
 					"name": "left_sleeve",
 					"parent": "left_arm",
-					"pivot": [5, 22, -1],
+					"pivot": [5, 22, 0],
 					"cubes": [
-						{"origin": [4, 12, -2.9], "size": [3, 12, 3.8], "inflate": -0.01, "uv": [35, 50]}
+						{"origin": [4, 12, -1.9], "size": [3, 12, 3.8], "inflate": -0.01, "uv": [35, 50]}
 					]
 				},
 				{
 					"name": "right_arm",
 					"parent": "bone",
-					"pivot": [-5, 23, 0],
+					"pivot": [-5, 22, 0],
 					"cubes": [
-						{"origin": [-7, 13, -2], "size": [3, 12, 4], "uv": [40, 16]}
+						{"origin": [-7, 12, -2], "size": [3, 12, 4], "uv": [40, 16]}
 					]
 				},
 				{
 					"name": "right_sleeve",
 					"parent": "right_arm",
-					"pivot": [-5, 23, 0],
+					"pivot": [-5, 22, 0],
 					"cubes": [
-						{"origin": [-7, 13, -2], "size": [3, 12, 4], "inflate": -0.01, "uv": [43, 17]}
+						{"origin": [-7, 12, -2], "size": [3, 12, 4], "inflate": -0.01, "uv": [43, 17]}
 					]
 				},
 				{
 					"name": "third_person_right_hand",
 					"parent": "right_arm",
-					"pivot": [-6, 14, -2]
+					"pivot": [-6, 13, -2]
 				},
 				{
 					"name": "left_leg",

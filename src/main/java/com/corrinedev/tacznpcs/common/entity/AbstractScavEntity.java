@@ -28,7 +28,6 @@ import com.tacz.guns.resource.pojo.data.gun.InaccuracyType;
 import com.tacz.guns.sound.SoundManager;
 import com.tacz.guns.util.CycleTaskHelper;
 import it.unimi.dsi.fastutil.Pair;
-import it.unimi.dsi.fastutil.objects.ObjectObjectMutablePair;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
@@ -53,7 +52,6 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -115,18 +113,18 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         this.tacz$speed = new LivingEntitySpeedModifier(this.tacz$shooter, this.tacz$data);
     }
 
-    public static AttributeSupplier.Builder createLivingAttributes() {
-        return Monster.createMonsterAttributes().add(Attributes.FOLLOW_RANGE, 64.0D).add(Attributes.MOVEMENT_SPEED, (double)0.35F).add(Attributes.ATTACK_DAMAGE, 3.0D).add(Attributes.ARMOR, 2.0D);
+    public static AttributeSupplier.@NotNull Builder createLivingAttributes() {
+        return Monster.createMonsterAttributes().add(Attributes.FOLLOW_RANGE, 64.0D).add(Attributes.MOVEMENT_SPEED, 0.35F).add(Attributes.ATTACK_DAMAGE, 3.0D).add(Attributes.ARMOR, 2.0D);
     }
 
     @Override
-    public void openCustomInventoryScreen(Player pPlayer) {
+    public void openCustomInventoryScreen(@NotNull Player pPlayer) {
         createMenu(999, pPlayer.getInventory(), pPlayer);
         pPlayer.openMenu(this);
     }
 
     @Override
-    public @org.jetbrains.annotations.Nullable AbstractContainerMenu createMenu(int pContainerId, Inventory pPlayerInventory, Player pPlayer) {
+    public @org.jetbrains.annotations.Nullable AbstractContainerMenu createMenu(int pContainerId, @NotNull Inventory pPlayerInventory, @NotNull Player pPlayer) {
         return ScavInventory.generate(pContainerId, pPlayerInventory, inventory, this);
     }
 
@@ -136,13 +134,13 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     @Override
-    public void addAdditionalSaveData(CompoundTag pCompound) {
+    public void addAdditionalSaveData(@NotNull CompoundTag pCompound) {
         super.addAdditionalSaveData(pCompound);
         this.writeInventoryToTag(pCompound);
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag pCompound) {
+    public void readAdditionalSaveData(@NotNull CompoundTag pCompound) {
         super.readAdditionalSaveData(pCompound);
         resetSlots();
         this.readInventoryFromTag(pCompound);
@@ -155,7 +153,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     @Override
-    public void onEquipItem(EquipmentSlot pSlot, ItemStack pOldItem, ItemStack pNewItem) {
+    public void onEquipItem(@NotNull EquipmentSlot pSlot, @NotNull ItemStack pOldItem, ItemStack pNewItem) {
         boolean flag = pNewItem.isEmpty() && pOldItem.isEmpty();
         if (!flag && !ItemStack.isSameItemSameTags(pOldItem, pNewItem) && !this.firstTick) {
             Equipable equipable = Equipable.get(pNewItem);
@@ -201,7 +199,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                new Panic<>().panicIf((e, d) -> d.is(DamageTypes.PLAYER_ATTACK)).setRadius(3).stopIf((e)->!BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(160, 200);}).runFor((e)-> 60),
+                new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(60, 120)).setRadius(3).stopIf((e)->!BehaviorUtils.canSee(this, Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(160, 200);}).runFor((e)-> 60),
 
                 (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
                 (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(40, 300)).stopIf((e)-> this.getTarget() == null),
@@ -209,15 +207,15 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     @Override
-    public void die(DamageSource pDamageSource) {
-        super.die(pDamageSource);
+    public void die(@NotNull DamageSource pDamageSource) {
         for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
-            this.spawnAtLocation(inventory.removeItem(i, inventory.getItem(i).getCount()));
+            this.spawnAtLocation(inventory.getItem(i));
         }
+        super.die(pDamageSource);
     }
 
     @Override
-    protected void dropCustomDeathLoot(DamageSource pSource, int pLooting, boolean pRecentlyHit) {
+    protected void dropCustomDeathLoot(@NotNull DamageSource pSource, int pLooting, boolean pRecentlyHit) {
         for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
             this.spawnAtLocation(inventory.removeItem(i, inventory.getItem(i).getCount()));
         }
@@ -261,21 +259,23 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     @Override
     public abstract List<? extends ExtendedSensor<? extends AbstractScavEntity>> getSensors();
 
-    public @Nullable GunTabType heldGunType() {
+    public GunTabType heldGunType() {
         if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
-            return switch (TimelessAPI.getCommonGunIndex(gun.getGunId(this.getMainHandItem())).get().getType()) {
-                case "pistol" -> GunTabType.PISTOL;
-                case "rifle" -> GunTabType.RIFLE;
-                case "sniper" -> GunTabType.SNIPER;
-                case "smg" -> GunTabType.SMG;
-                case "rpg" -> GunTabType.RPG;
-                case "shotgun" -> GunTabType.SHOTGUN;
-                case "mg" -> GunTabType.MG;
-                default ->
-                        throw new IllegalStateException("Unexpected value: " + TimelessAPI.getCommonGunIndex(gun.getGunId(this.getMainHandItem())).get().getType());
-            };
+            if(TimelessAPI.getCommonGunIndex(gun.getGunId(this.getMainHandItem())).isPresent()) {
+                return switch (TimelessAPI.getCommonGunIndex(gun.getGunId(this.getMainHandItem())).get().getType()) {
+                    case "pistol" -> GunTabType.PISTOL;
+                    case "rifle" -> GunTabType.RIFLE;
+                    case "sniper" -> GunTabType.SNIPER;
+                    case "smg" -> GunTabType.SMG;
+                    case "rpg" -> GunTabType.RPG;
+                    case "shotgun" -> GunTabType.SHOTGUN;
+                    case "mg" -> GunTabType.MG;
+                    default ->
+                            throw new IllegalStateException("Unexpected value: " + TimelessAPI.getCommonGunIndex(gun.getGunId(this.getMainHandItem())).get().getType());
+                };
+            }
         }
-            return null;
+            return GunTabType.PISTOL;
     }
     public static @Nullable GunTabType heldGunType(ItemStack gunStack) {
         if(gunStack.getItem() instanceof ModernKineticGunItem gun) {
@@ -300,6 +300,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 case SHOTGUN -> 10;
                 case SMG, MG -> 1;
                 case RPG -> 100;
+                default -> 60;
             };
         }
         return 60;

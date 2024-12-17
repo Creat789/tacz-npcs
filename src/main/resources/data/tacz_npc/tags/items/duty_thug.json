@@ -1,6 +1,10 @@
 {
   "values": [
     {
+      "id": "tacz_npc:experienced",
+      "required": false
+    },
+    {
       "id": "marbledsarsenal:helmet_cm8m_gas_mask",
       "required": false
     },

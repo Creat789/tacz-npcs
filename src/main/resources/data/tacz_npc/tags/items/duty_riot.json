@@ -1,6 +1,10 @@
 {
   "values": [
     {
+      "id": "tacz_npc:expert",
+      "required": false
+    },
+    {
       "id": "marbledsarsenal:riot_armor_helmet",
       "required": false
     },

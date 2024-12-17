@@ -2,6 +2,7 @@ package com.corrinedev.tacznpcs;
 
 import com.corrinedev.tacznpcs.common.registry.AttributeRegistry;
 import com.corrinedev.tacznpcs.common.registry.EntityTypeRegistry;
+import com.corrinedev.tacznpcs.common.registry.ItemRegistry;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
@@ -30,6 +31,8 @@ public class NPCS {
         modEventBus.addListener(this::commonSetup);
 
         EntityTypeRegistry.TYPES.register(modEventBus);
+
+        ItemRegistry.ITEMS.register(modEventBus);
         modEventBus.addListener(AttributeRegistry::register);
 
         MinecraftForge.EVENT_BUS.register(this);

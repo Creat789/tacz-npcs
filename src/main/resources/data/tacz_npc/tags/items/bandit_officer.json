@@ -1,6 +1,10 @@
 {
   "values": [
     {
+      "id": "tacz_npc:veteran",
+      "required": false
+    },
+    {
       "id": "marbledsarsenal:black_military_beret",
       "required": false
     },
