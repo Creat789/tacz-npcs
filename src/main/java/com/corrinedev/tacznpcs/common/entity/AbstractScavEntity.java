@@ -211,7 +211,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(20, 30)).setRadius(3).stopIf((e)->this.getTarget() != null && !BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(10, 20);}).runFor((e)-> 20),
 
                 (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
-                (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(40, 300)).stopIf((e)-> this.getTarget() == null),
+                (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(140, 300)).stopIf((e)-> this.getTarget() == null),
                 new MoveToWalkTarget<>()});
     }
 

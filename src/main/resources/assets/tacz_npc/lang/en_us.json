@@ -5,5 +5,6 @@
   "item.tacz_npc.experienced": "Experienced Patch",
   "item.tacz_npc.veteran": "Veteran Patch",
   "item.tacz_npc.expert": "Expert Patch",
-  "item.tacz_npc.usec_scav_rifle_spawn_egg": "USEC Rifleman Spawn Egg"
+  "item.tacz_npc.duty_spawn_egg": "Duty Spawn Egg",
+  "item.tacz_npc.bandit_spawn_egg": "Bandit Spawn Egg"
 }

@@ -1,5 +1,7 @@
 package com.corrinedev.tacznpcs.common.entity;
 
+import com.corrinedev.tacznpcs.Config;
+import com.tacz.guns.item.ModernKineticGunItem;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -19,6 +21,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSet;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.fml.ModList;
 import net.tslat.smartbrainlib.api.core.BrainActivityGroup;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
@@ -57,6 +60,11 @@ public class DutyEntity extends AbstractScavEntity {
             ObjectArrayList<ItemStack> stacks = this.getServer().getLootData().getLootTable(new ResourceLocation(MODID, "duty")).getRandomItems(new LootParams.Builder(this.getServer().overworld()).create(LootContextParamSet.builder().build()));
             stacks.forEach((stack) -> {
                 inventory.addItem(stack);
+                if(stack.getItem() instanceof ModernKineticGunItem) {
+                    if(ModList.get().isLoaded("taczdurability")) {
+                        stack.getOrCreateTag().putInt("Durability", RandomSource.create().nextInt(Config.DURABILITYFROM.get(), Config.DURABILITYTO.get()));
+                    }
+                }
             });
         }
         for(int i = 0; i < this.inventory.getContainerSize() - 1; i++) {
