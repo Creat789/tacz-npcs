@@ -100,7 +100,7 @@
             {
               "function": "minecraft:set_nbt",
               "ops": [],
-              "tag": "{GunId:\"tacz:scarl\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:30}",
+              "tag": "{GunId:\"tacz:scar_l\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:30}",
               "conditions": []
             }
           ]

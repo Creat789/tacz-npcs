@@ -1,0 +1,20 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "tacz_npc:item/blank_patch"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "tacz_npc:type": 1
+      },
+      "model": "tacz_npc:item/bandit_patch"
+    },
+    {
+      "predicate": {
+        "tacz_npc:type": 2
+      },
+      "model": "tacz_npc:item/duty_patch"
+    }
+  ]
+}

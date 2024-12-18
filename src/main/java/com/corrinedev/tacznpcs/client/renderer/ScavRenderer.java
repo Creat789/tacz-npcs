@@ -53,7 +53,7 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
             }
             @Override
             protected @NotNull ModelPart getModelPartForBone(GeoBone bone, EquipmentSlot slot, ItemStack stack, T animatable, HumanoidModel<?> baseModel) {
-                // Map the bone to the corresponding model part
+                // Map the bone to the corresponding models part
                 return switch (bone.getName()) {
                     case "left_boot", "left_armor_leg" -> baseModel.leftLeg;
                     case "right_boot", "right_armor_leg" -> baseModel.rightLeg;

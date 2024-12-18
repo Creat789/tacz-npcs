@@ -35,7 +35,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -97,6 +96,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public boolean isReloading = false;
     public boolean isAvoiding = false;
     public SimpleContainer inventory;
+    public List<LivingEntity> attackers = new ArrayList<>();
     protected AbstractScavEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
         initialGunOperateData();
@@ -131,6 +131,14 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     @Override
     public @NotNull SimpleContainer getInventory() {
         return inventory;
+    }
+
+    @Override
+    public boolean hurt(DamageSource pSource, float pAmount) {
+        if(pSource.getEntity() instanceof LivingEntity living) {
+            attackers.add(living);
+        }
+        return super.hurt(pSource, pAmount);
     }
 
     @Override
@@ -197,9 +205,10 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return cache;
     }
+
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(60, 120)).setRadius(3).stopIf((e)->!BehaviorUtils.canSee(this, Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(160, 200);}).runFor((e)-> 60),
+                new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(20, 30)).setRadius(3).stopIf((e)->this.getTarget() != null && !BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(10, 20);}).runFor((e)-> 20),
 
                 (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
                 (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(40, 300)).stopIf((e)-> this.getTarget() == null),
@@ -208,9 +217,6 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     public void die(@NotNull DamageSource pDamageSource) {
-        for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
-            this.spawnAtLocation(inventory.getItem(i));
-        }
         super.die(pDamageSource);
     }
 
@@ -328,25 +334,26 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     public void pickUpItem(ItemEntity pItemEntity) {
-        ItemStack itemstack = pItemEntity.getItem();
-        if (this.wantsToPickUp(itemstack)) {
-            SimpleContainer simplecontainer = inventory;
-            boolean flag = simplecontainer.canAddItem(itemstack);
-            if (!flag) {
-                return;
-            }
+        if(!this.isDeadOrDying()) {
+            ItemStack itemstack = pItemEntity.getItem();
+            if (this.wantsToPickUp(itemstack)) {
+                SimpleContainer simplecontainer = inventory;
+                boolean flag = simplecontainer.canAddItem(itemstack);
+                if (!flag) {
+                    return;
+                }
 
-            this.onItemPickup(pItemEntity);
-            int i = itemstack.getCount();
-            ItemStack itemstack1 = simplecontainer.addItem(itemstack);
-            this.take(pItemEntity, i - itemstack1.getCount());
-            if (itemstack1.isEmpty()) {
-                pItemEntity.discard();
-            } else {
-                itemstack.setCount(itemstack1.getCount());
+                this.onItemPickup(pItemEntity);
+                int i = itemstack.getCount();
+                ItemStack itemstack1 = simplecontainer.addItem(itemstack);
+                this.take(pItemEntity, i - itemstack1.getCount());
+                if (itemstack1.isEmpty()) {
+                    pItemEntity.discard();
+                } else {
+                    itemstack.setCount(itemstack1.getCount());
+                }
             }
         }
-
     }
 
     @Override
@@ -524,7 +531,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     
     private final LivingEntity tacz$shooter = (LivingEntity)this;
     
-    private final ShooterDataHolder tacz$data = new ShooterDataHolder();
+    public final ShooterDataHolder tacz$data = new ShooterDataHolder();
     
     private final LivingEntityDrawGun tacz$draw;
     
