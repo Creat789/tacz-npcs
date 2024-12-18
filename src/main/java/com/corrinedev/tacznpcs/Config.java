@@ -7,7 +7,9 @@ import net.minecraftforge.fml.common.Mod;
 public class Config {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
-    public static final ForgeConfigSpec.DoubleValue NPCDAMAGE = BUILDER.comment("Damage multiplier for tacz npcs").defineInRange("base multiplier", 0.50, 0, Double.MAX_VALUE);
+    public static final ForgeConfigSpec.DoubleValue NPCDAMAGE = BUILDER.comment("Damage multiplier for tacz npcs (doesn't affect player damage)").defineInRange("base multiplier", 0.75, 0, Double.MAX_VALUE);
+    public static final ForgeConfigSpec.DoubleValue NPCDAMAGEPLAYER = BUILDER.comment("Seperate damage multiplier for tacz npcs that affects only players").defineInRange("base player multiplier", 0.50, 0, Double.MAX_VALUE);
+    public static final ForgeConfigSpec.BooleanValue DROPITEMS = BUILDER.comment("NPCs drop items?").define("dropitems", true);
     //TACZ DURABILITY
     public static final ForgeConfigSpec.IntValue DURABILITYFROM = BUILDER.comment("The lowest durability value for guns to spawn with from TACZ Durability").defineInRange("from", 200, 0, Integer.MAX_VALUE);
     public static final ForgeConfigSpec.IntValue DURABILITYTO = BUILDER.comment("The highest durability value for guns to spawn with from TACZ Durability").defineInRange("to", 800, 0, Integer.MAX_VALUE);

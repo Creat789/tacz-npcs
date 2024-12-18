@@ -1,5 +1,6 @@
 package com.corrinedev.tacznpcs.common.entity;
 
+import com.corrinedev.tacznpcs.Config;
 import com.corrinedev.tacznpcs.common.entity.behavior.TaczShootAttack;
 import com.corrinedev.tacznpcs.common.entity.inventory.ScavInventory;
 import com.tacz.guns.api.TimelessAPI;
@@ -30,6 +31,7 @@ import com.tacz.guns.util.CycleTaskHelper;
 import it.unimi.dsi.fastutil.Pair;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -53,8 +55,10 @@ import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.LogicalSide;
+import net.minecraftforge.fml.ModList;
 import net.tslat.smartbrainlib.api.SmartBrainOwner;
 import net.tslat.smartbrainlib.api.core.BrainActivityGroup;
 import net.tslat.smartbrainlib.api.core.SmartBrainProvider;
@@ -86,7 +90,7 @@ import javax.annotation.Nullable;
 import java.util.*;
 import java.util.function.Supplier;
 
-public abstract class AbstractScavEntity extends PathfinderMob implements GeoEntity, SmartBrainOwner<AbstractScavEntity>, RangedAttackMob, IGunOperator, InventoryCarrier, HasCustomInventoryScreen, MenuProvider {
+public abstract class AbstractScavEntity extends PathfinderMob implements GeoEntity, SmartBrainOwner<AbstractScavEntity>, IGunOperator, InventoryCarrier, HasCustomInventoryScreen, MenuProvider {
     private final AnimatableInstanceCache cache =  GeckoLibUtil.createInstanceCache(this);
     public int rangedCooldown = 0;
     public boolean firing = true;
@@ -95,6 +99,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public int paniccooldown = 0;
     public boolean isReloading = false;
     public boolean isAvoiding = false;
+    public boolean deadAsContainer = false;
     public SimpleContainer inventory;
     public List<LivingEntity> attackers = new ArrayList<>();
     protected AbstractScavEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
@@ -161,6 +166,14 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     @Override
+    public boolean isDeadOrDying() {
+        if(this.deadAsContainer) {
+            return false;
+        }
+        return super.isDeadOrDying();
+    }
+
+    @Override
     public void onEquipItem(@NotNull EquipmentSlot pSlot, @NotNull ItemStack pOldItem, ItemStack pNewItem) {
         boolean flag = pNewItem.isEmpty() && pOldItem.isEmpty();
         if (!flag && !ItemStack.isSameItemSameTags(pOldItem, pNewItem) && !this.firstTick) {
@@ -209,7 +222,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
                 new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(20, 30)).setRadius(3).stopIf((e)->this.getTarget() != null && !BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(10, 20);}).runFor((e)-> 20),
-
+                new SetRandomWalkTarget<>().setRadius(16).speedModifier(0.8F).startCondition((e)-> !this.firing),
                 (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
                 (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(140, 300)).stopIf((e)-> this.getTarget() == null),
                 new MoveToWalkTarget<>()});
@@ -217,7 +230,47 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     public void die(@NotNull DamageSource pDamageSource) {
-        super.die(pDamageSource);
+        if(this.inventory.isEmpty()) {
+            super.die(pDamageSource);
+        } else {
+            this.deadAsContainer = true;
+
+            if (net.minecraftforge.common.ForgeHooks.onLivingDeath(this, pDamageSource)) return;
+            if (!this.isRemoved() && !this.dead) {
+                Entity entity = pDamageSource.getEntity();
+                LivingEntity livingentity = this.getKillCredit();
+                if (this.deathScore >= 0 && livingentity != null) {
+                    livingentity.awardKillScore(this, this.deathScore, pDamageSource);
+                }
+
+                if (this.isSleeping()) {
+                    this.stopSleeping();
+                }
+
+                this.dead = true;
+                this.getCombatTracker().recheckStatus();
+                Level level = this.level();
+                if (level instanceof ServerLevel) {
+                    ServerLevel serverlevel = (ServerLevel)level;
+                    if (entity == null || entity.killedEntity(serverlevel, this)) {
+                        this.gameEvent(GameEvent.ENTITY_DIE);
+                        this.dropAllDeathLoot(pDamageSource);
+                        this.createWitherRose(livingentity);
+                    }
+
+                    this.level().broadcastEntityEvent(this, (byte)3);
+                }
+
+                this.setPose(Pose.DYING);
+            }
+        }
+    }
+
+    @Override
+    protected void dropAllDeathLoot(DamageSource pDamageSource) {
+        if(Config.DROPITEMS.get()) {
+            DeathEntity entity = new DeathEntity();
+        }
     }
 
     @Override
@@ -330,7 +383,9 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     protected void customServerAiStep() {
-        this.tickBrain(this);
+        if(!this.deadAsContainer) {
+            this.tickBrain(this);
+        }
     }
 
     public void pickUpItem(ItemEntity pItemEntity) {
@@ -364,6 +419,15 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     @Override
     public void tick() {
         onTickServerSide();
+        if(ModList.get().isLoaded("gundurability")) {
+            if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem) {
+                if(this.getMainHandItem().getOrCreateTag().getBoolean("Jammed")) {
+                    if(RandomSource.create().nextInt(0, 60) == 1) {
+                        this.getMainHandItem().getOrCreateTag().putBoolean("Jammed", false);
+                    }
+                }
+            }
+        }
         if(inventory.hasAnyMatching((i) -> i.getItem() instanceof ArmorItem)) {
             for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
                 if (inventory.getItem(i).getItem() instanceof ArmorItem item) {
@@ -406,6 +470,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
             rangedCooldown--;
         }
         if(paniccooldown != 0) {
+
             paniccooldown--;
             if(paniccooldown == 1) {
                 panic = false;
@@ -425,6 +490,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     protected InteractionResult mobInteract(Player pPlayer, InteractionHand pHand) {
+        System.out.println(allowInventory(pPlayer));
         if(allowInventory(pPlayer)) {
             openCustomInventoryScreen(pPlayer);
         }
@@ -436,7 +502,6 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         bullet.shootFromRotation(bullet, pitch, yaw, 0.0F, speed, inaccuracy);
         world.addFreshEntity(bullet);
     }
-    @Override
     public void performRangedAttack(LivingEntity pTarget, float pVelocity) {
         //lookAt(pTarget, 10, 10);
         if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {

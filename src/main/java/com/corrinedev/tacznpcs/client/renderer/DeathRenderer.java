@@ -1,6 +1,8 @@
 package com.corrinedev.tacznpcs.client.renderer;
 
+import com.corrinedev.tacznpcs.client.models.DeathModel;
 import com.corrinedev.tacznpcs.common.entity.AbstractScavEntity;
+import com.corrinedev.tacznpcs.common.entity.DeathEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -21,16 +23,16 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
 import software.bernie.geckolib.renderer.layer.ItemArmorGeoLayer;
 import software.bernie.geckolib.util.RenderUtils;
 
-public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRenderer<T> {
+public class DeathRenderer extends GeoEntityRenderer<DeathEntity> {
     public EntityRendererProvider.Context context;
     public float rotation = 0f;
-    public ItemArmorGeoLayer<T> LAYER;
-    public ScavRenderer(EntityRendererProvider.Context renderManager, GeoModel<T> model) {
-        super(renderManager, model);
+    public ItemArmorGeoLayer<DeathEntity> LAYER;
+    public DeathRenderer(EntityRendererProvider.Context renderManager) {
+        super(renderManager, new DeathModel());
         this.context = renderManager;
-        LAYER = new ItemArmorGeoLayer<T>(this) {
+        LAYER = new ItemArmorGeoLayer<DeathEntity>(this) {
             @Override
-            protected ItemStack getArmorItemForBone(GeoBone bone, T animatable) {
+            protected ItemStack getArmorItemForBone(GeoBone bone, DeathEntity animatable) {
                 // Return the appropriate armor item based on the bone name
                 return switch (bone.getName()) {
                     case "left_boot", "right_boot" -> this.bootsStack;
@@ -41,7 +43,7 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
                 };
             }
             @Override
-            protected @NotNull EquipmentSlot getEquipmentSlotForBone(GeoBone bone, ItemStack stack, T animatable) {
+            protected @NotNull EquipmentSlot getEquipmentSlotForBone(GeoBone bone, ItemStack stack, DeathEntity animatable) {
                 return switch (bone.getName()) {
                     case "left_boot" -> EquipmentSlot.FEET;
                     case "left_armor_leg", "right_armor_leg" -> EquipmentSlot.LEGS;
@@ -53,7 +55,7 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
                 };
             }
             @Override
-            protected @NotNull ModelPart getModelPartForBone(GeoBone bone, EquipmentSlot slot, ItemStack stack, T animatable, HumanoidModel<?> baseModel) {
+            protected @NotNull ModelPart getModelPartForBone(GeoBone bone, EquipmentSlot slot, ItemStack stack, DeathEntity animatable, HumanoidModel<?> baseModel) {
                 // Map the bone to the corresponding models part
                 return switch (bone.getName()) {
                     case "left_boot", "left_armor_leg" -> baseModel.leftLeg;
@@ -71,21 +73,11 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
     }
 
     @Override
-    public void render(T entity, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight) {
-        poseStack.pushPose();
-
-        if(entity.deadAsContainer) {
-            if(this.rotation != 90) {
-                rotation += 0.5f;
-            }
-            poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
-        }
-
+    public void render(DeathEntity entity, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight) {
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
-        poseStack.popPose();
     }
     @Override
-    public void renderRecursively(PoseStack poseStack, T animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
+    public void renderRecursively(PoseStack poseStack, DeathEntity animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
         super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, red, green, blue, alpha);
         if (bone.getName().equals("third_person_right_hand")) {
             
