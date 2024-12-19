@@ -45,7 +45,6 @@ import net.minecraft.world.entity.ai.behavior.Behavior;
 import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.npc.InventoryCarrier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -55,7 +54,6 @@ import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.ModList;
@@ -84,6 +82,7 @@ import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache
 import software.bernie.geckolib.core.animation.AnimatableManager;
 import software.bernie.geckolib.core.animation.AnimationController;
 import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import javax.annotation.Nullable;
@@ -92,6 +91,8 @@ import java.util.function.Supplier;
 
 public abstract class AbstractScavEntity extends PathfinderMob implements GeoEntity, SmartBrainOwner<AbstractScavEntity>, IGunOperator, InventoryCarrier, HasCustomInventoryScreen, MenuProvider {
     private final AnimatableInstanceCache cache =  GeckoLibUtil.createInstanceCache(this);
+    public AnimationController<AbstractScavEntity> TRIGGER = new AnimationController<>(this, "reload_controller", state -> PlayState.CONTINUE).triggerableAnim("reload_upper", RawAnimation.begin().thenPlayAndHold("reload_upper")).receiveTriggeredAnimations();
+
     public int rangedCooldown = 0;
     public boolean firing = true;
     public int collectiveShots = 0;
@@ -100,6 +101,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public boolean isReloading = false;
     public boolean isAvoiding = false;
     public boolean deadAsContainer = false;
+    public int randomDeathNumber = RandomSource.create().nextInt(1,4);
     public SimpleContainer inventory;
     public List<LivingEntity> attackers = new ArrayList<>();
     protected AbstractScavEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
@@ -167,9 +169,6 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     public boolean isDeadOrDying() {
-        if(this.deadAsContainer) {
-            return false;
-        }
         return super.isDeadOrDying();
     }
 
@@ -190,12 +189,16 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public abstract boolean allowInventory(Player player);
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-            controllers.add(new AnimationController<>(this, "controller", 5, event ->
+        controllers.add(TRIGGER);
+        controllers.add(new AnimationController<>(this, "fire_controller", state -> PlayState.CONTINUE).receiveTriggeredAnimations().triggerableAnim("fire", RawAnimation.begin().thenPlayAndHold("normal_fire_upper")));
+
+        controllers.add(new AnimationController<>(this, "controller", 5, event ->
             {
                 return event.setAndContinue(
                         // If sprinting, play the run animation
-                        this.isReloading ? RawAnimation.begin().thenPlayAndHold("reload_upper") :
-                                event.getAnimatable().isSprinting() ? RawAnimation.begin().thenLoop("run") :
+                        //this.isReloading ? RawAnimation.begin().thenPlayAndHold("reload_upper") :
+                                event.getAnimatable().isDeadOrDying() || event.getAnimatable().deadAsContainer ? RawAnimation.begin().thenPlayAndHold("death" + randomDeathNumber) :
+                                        event.getAnimatable().isSprinting() ? RawAnimation.begin().thenLoop("run") :
                                 // If moving, play the walk animation
                                 event.isMoving() ? RawAnimation.begin().thenLoop("walk"):
                                         firing ? RawAnimation.begin().thenLoop("aim_upper") :
@@ -212,6 +215,12 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                             }
                         }
                     }));
+            controllers.add(new AnimationController<>(this, "layered", 5, event -> {
+                if(this.isReloading) {
+                    return event.setAndContinue(RawAnimation.begin().thenPlayAndHold("reload_upper"));
+                }
+                return event.setAndContinue(RawAnimation.begin().thenWait(0));
+            }));
     }
 
     @Override
@@ -229,12 +238,18 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     @Override
+    protected void tickDeath() {
+        if(this.inventory.isEmpty()) {
+            super.tickDeath();
+        }
+    }
+
+    @Override
     public void die(@NotNull DamageSource pDamageSource) {
         if(this.inventory.isEmpty()) {
             super.die(pDamageSource);
         } else {
             this.deadAsContainer = true;
-
             if (net.minecraftforge.common.ForgeHooks.onLivingDeath(this, pDamageSource)) return;
             if (!this.isRemoved() && !this.dead) {
                 Entity entity = pDamageSource.getEntity();
@@ -247,7 +262,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                     this.stopSleeping();
                 }
 
-                this.dead = true;
+                this.dead = false;
                 this.getCombatTracker().recheckStatus();
                 Level level = this.level();
                 if (level instanceof ServerLevel) {
@@ -261,15 +276,14 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                     this.level().broadcastEntityEvent(this, (byte)3);
                 }
 
-                this.setPose(Pose.DYING);
+                //this.setPose(Pose.DYING);
             }
         }
     }
-
     @Override
     protected void dropAllDeathLoot(DamageSource pDamageSource) {
         if(Config.DROPITEMS.get()) {
-            DeathEntity entity = new DeathEntity();
+
         }
     }
 
@@ -418,6 +432,10 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     public void tick() {
+        if(this.deadAsContainer) {
+            super.tick();
+            return;
+        }
         onTickServerSide();
         if(ModList.get().isLoaded("gundurability")) {
             if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem) {
@@ -490,7 +508,6 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     protected InteractionResult mobInteract(Player pPlayer, InteractionHand pHand) {
-        System.out.println(allowInventory(pPlayer));
         if(allowInventory(pPlayer)) {
             openCustomInventoryScreen(pPlayer);
         }
@@ -676,9 +693,9 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     
     public void reload() {
+        TRIGGER.tryTriggerAnimation("reload_upper");
         this.tacz$reload.reload();
         this.isReloading = true;
-        //this.triggerAnim("controller", "reload_upper");
     }
 
     public void melee() {
@@ -687,6 +704,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     
     public ShootResult shoot(Supplier<Float> pitch, Supplier<Float> yaw) {
+        this.triggerAnim("fire_controller", "fire");
         return this.tacz$shoot.shoot(pitch, yaw);
     }
 
@@ -750,6 +768,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 }
 
             }
+            this.bolt();
             ReloadState reloadState = this.tacz$reload.tickReloadState();
             this.tacz$aim.tickAimingProgress();
             this.tacz$aim.tickSprint();

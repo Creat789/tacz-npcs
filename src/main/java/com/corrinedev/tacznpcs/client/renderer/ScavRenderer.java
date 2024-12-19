@@ -10,12 +10,15 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import software.bernie.geckolib.cache.object.GeoBone;
+import software.bernie.geckolib.core.object.Color;
 import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 import software.bernie.geckolib.renderer.layer.ItemArmorGeoLayer;
@@ -74,16 +77,30 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
     public void render(T entity, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int packedLight) {
         poseStack.pushPose();
 
-        if(entity.deadAsContainer) {
-            if(this.rotation != 90) {
-                rotation += 0.5f;
-            }
-            poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
-        }
+//if(entity.deadAsContainer) {
+//    if(this.rotation != 90) {
+//        rotation += 0.5f;
+//    }
+//    poseStack.mulPose(Axis.YP.rotationDegrees(rotation));
+//}
 
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
         poseStack.popPose();
     }
+    public int getPackedOverlay(T animatable, float u) {
+            return OverlayTexture.pack(OverlayTexture.u(u), OverlayTexture.v(animatable.hurtTime > 0));
+    }
+
+    @Override
+    public Color getRenderColor(T animatable, float partialTick, int packedLight) {
+        return super.getRenderColor(animatable, partialTick, packedLight);
+    }
+
+    @Override
+    protected float getDeathMaxRotation(T animatable) {
+        return 0.0f;
+    }
+
     @Override
     public void renderRecursively(PoseStack poseStack, T animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
         super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, red, green, blue, alpha);

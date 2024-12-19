@@ -2,7 +2,6 @@ package com.corrinedev.tacznpcs.client;
 
 import com.corrinedev.tacznpcs.client.renderer.BanditRenderer;
 import com.corrinedev.tacznpcs.client.renderer.DutyRenderer;
-import com.corrinedev.tacznpcs.client.renderer.ScavRenderer;
 import com.corrinedev.tacznpcs.common.registry.EntityTypeRegistry;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraftforge.api.distmarker.Dist;

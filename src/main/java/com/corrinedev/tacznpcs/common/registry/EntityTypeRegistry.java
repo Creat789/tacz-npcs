@@ -1,6 +1,5 @@
 package com.corrinedev.tacznpcs.common.registry;
 
-import com.corrinedev.tacznpcs.common.entity.AbstractScavEntity;
 import com.corrinedev.tacznpcs.common.entity.BanditEntity;
 import com.corrinedev.tacznpcs.common.entity.DutyEntity;
 import net.minecraft.world.entity.EntityType;
