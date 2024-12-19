@@ -66,9 +66,9 @@ import net.tslat.smartbrainlib.api.core.behaviour.OneRandomBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeAttack;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
-import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.StrafeTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetWalkTargetToAttackTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.target.InvalidateAttackTarget;
@@ -79,9 +79,7 @@ import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
 import org.jetbrains.annotations.NotNull;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.core.animation.AnimatableManager;
-import software.bernie.geckolib.core.animation.AnimationController;
-import software.bernie.geckolib.core.animation.RawAnimation;
+import software.bernie.geckolib.core.animation.*;
 import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
@@ -101,12 +99,13 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public boolean isReloading = false;
     public boolean isAvoiding = false;
     public boolean deadAsContainer = false;
-    public int randomDeathNumber = RandomSource.create().nextInt(1,4);
+    public int randomDeathNumber = RandomSource.create().nextInt(4,6);
     public SimpleContainer inventory;
     public List<LivingEntity> attackers = new ArrayList<>();
     protected AbstractScavEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
         initialGunOperateData();
+        System.out.println(this.randomDeathNumber);
         inventory = new SimpleContainer(27);
         this.tacz$draw = new LivingEntityDrawGun(this.tacz$shooter, this.tacz$data);
         this.tacz$aim = new LivingEntityAim(this.tacz$shooter, this.tacz$data);
@@ -216,7 +215,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                         }
                     }));
             controllers.add(new AnimationController<>(this, "layered", 5, event -> {
-                if(this.isReloading) {
+                if(this.isReloading && !this.deadAsContainer) {
                     return event.setAndContinue(RawAnimation.begin().thenPlayAndHold("reload_upper"));
                 }
                 return event.setAndContinue(RawAnimation.begin().thenWait(0));
@@ -228,12 +227,14 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         return cache;
     }
 
+    @Override
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(20, 30)).setRadius(3).stopIf((e)->this.getTarget() != null && !BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(10, 20);}).runFor((e)-> 20),
-                new SetRandomWalkTarget<>().setRadius(16).speedModifier(0.8F).startCondition((e)-> !this.firing),
-                (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
-                (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(140, 300)).stopIf((e)-> this.getTarget() == null),
+                (new AvoidEntity<>()).avoiding((entity) -> {return entity instanceof Player;}),
+                (new LookAtTarget<>()).runFor((entity) -> {return RandomSource.create().nextInt(40, 300);}),
+                (new StrafeTarget<>()).stopStrafingWhen((entity) -> {
+                    return !this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get());
+                }).startCondition((e) -> this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get())),
                 new MoveToWalkTarget<>()});
     }
 
@@ -282,7 +283,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
     @Override
     protected void dropAllDeathLoot(DamageSource pDamageSource) {
-        if(Config.DROPITEMS.get()) {
+        if(!Config.DROPITEMS.get()) {
 
         }
     }
@@ -314,17 +315,13 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                         new SetRandomWalkTarget<>()).speedModifier(1.0F),
                         (new Idle<>()).runFor((entity) -> RandomSource.create().nextInt(30, 60))})});
     }
-
     public BrainActivityGroup<? extends AbstractScavEntity> getFightTasks() {
         return BrainActivityGroup.fightTasks(new Behavior[]{
                 new InvalidateAttackTarget<>(),
                 (new SetWalkTargetToAttackTarget<>()).startCondition((entity) ->( !isUsingGun() || !BehaviorUtils.canSee(this, Objects.requireNonNull(this.getTarget()))) && !panic),
-                new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{
-                        (new OneRandomBehaviour<>(new ExtendedBehaviour[]{
-                                (new TaczShootAttack<>(0, 64).startCondition((x$0) ->  !isAvoiding && isUsingGun() && !isReloading && !panic && collectiveShots < getStateBurst() && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true; collectiveShots++;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget()))),
-                                (new TaczShootAttack<>(0, 64).startCondition((x$0) -> !isAvoiding && heldGunType() != null && Objects.equals(heldGunType(), GunTabType.MG) && isUsingGun() && !isReloading && !panic && !this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {}).stopIf((e) -> this.isReloading || this.panic || this.hasLineOfSight(this.getTarget())))
-                        })),
-                        (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> this.setAggressive(true)).whenStopping((entity) -> this.setAggressive(false))})});
+                new FirstApplicableBehaviour<AbstractScavEntity>(new ExtendedBehaviour[]{
+                        (new TaczShootAttack<>(0, 64).startCondition((x$0) ->  !isAvoiding && isUsingGun() && !isReloading && !panic && collectiveShots < getStateBurst() && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true; collectiveShots++;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget()))),
+                        (new AnimatableMeleeAttack<AbstractScavEntity>(0)).whenStarting((entity) -> this.setAggressive(true)).whenStopping((entity) -> this.setAggressive(false))})});
     }
     public boolean isUsingGun() {
         return this.getMainHandItem().getItem() instanceof ModernKineticGunItem;
@@ -434,6 +431,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public void tick() {
         if(this.deadAsContainer) {
             super.tick();
+            if(!Config.DROPITEMS.get()) this.inventory.removeAllItems();
             return;
         }
         onTickServerSide();

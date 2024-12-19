@@ -54,4 +54,5 @@ public class NPCS {
             // Some client setup code
         }
     }
+
 }
