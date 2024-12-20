@@ -54,6 +54,7 @@ import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeA
 import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.BowAttack;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.StrafeTarget;
@@ -215,13 +216,17 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                (new AvoidEntity<>()).avoiding((entity) -> {
+                (new AvoidEntity<>()).noCloserThan(12).avoiding((entity) -> {
             return entity == this.getTarget();
-        }), (new LookAtTarget<>()).runFor((entity) -> {
+        }),
+                new TargetOrRetaliate<AbstractScavEntity>().isAllyIf((e, l) -> l.getType() == e.getType()).attackablePredicate(l -> l != null && this.hasLineOfSight(l)).alertAlliesWhen((m, e) -> e != null && m.hasLineOfSight(e)).runFor((e) -> 999),
+                //new SetRetaliateTarget<>().isAllyIf((e, l) -> l.getType() == e.getType()),
+                new Panic<>().setRadius(16).speedMod((e) -> 1.1f).startCondition((e) -> this.getHealth() <= 10).whenStopping((e) -> panic = false).whenStarting( (e)-> panic = true).stopIf((e) -> this.getTarget() == null && !this.getTarget().hasLineOfSight(this)),
+                (new LookAtTarget<>()).runFor((entity) -> {
             return RandomSource.create().nextInt(40, 300);
-        }), (new StrafeTarget<>()).speedMod(0.8f).strafeDistance(6).stopStrafingWhen((entity) -> {
-            return this.getTarget() == null;
-        }).startCondition((e) -> this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get())), new MoveToWalkTarget()});
+        }), (new StrafeTarget<>()).speedMod(0.75f).strafeDistance(24).stopStrafingWhen((entity) -> {
+            return this.getTarget() == null || !this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get());
+        }).startCondition((e) -> this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get())), new MoveToWalkTarget<>()});
     }
 
     @Override
@@ -302,12 +307,15 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     public BrainActivityGroup<? extends AbstractScavEntity> getFightTasks() {
-        return BrainActivityGroup.fightTasks(new Behavior[]{new InvalidateAttackTarget<>(), (new SetWalkTargetToAttackTarget<>()).startCondition((entity) -> {
+        return BrainActivityGroup.fightTasks(new Behavior[]{
+                new InvalidateAttackTarget<>(),
+                (new SetWalkTargetToAttackTarget<>()).startCondition((entity) -> {
             return !this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get());}),
-
+            new SetRetaliateTarget<>(),
             new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{(new TaczShootAttack<>(64).startCondition((x$0) -> {
             return this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get()) && !this.panic && this.collectiveShots <= this.getStateBurst();
-        })), (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> {
+        })),
+                    (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> {
             this.setAggressive(true);
         }).whenStopping((entity) -> {
             this.setAggressive(false);

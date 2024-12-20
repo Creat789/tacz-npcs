@@ -13,6 +13,7 @@ import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.behavior.Behavior;
 import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
@@ -48,6 +49,7 @@ public class DutyEntity extends AbstractScavEntity {
     private int remainingPersistentAngerTime;
     @javax.annotation.Nullable
     private UUID persistentAngerTarget;
+    private LivingEntity currentAngerTarget;
     private static final int ALERT_RANGE_Y = 10;
     private static final UniformInt ALERT_INTERVAL = TimeUtil.rangeOfSeconds(4, 6);
     private boolean angry = false;
@@ -108,7 +110,15 @@ public class DutyEntity extends AbstractScavEntity {
         }
         this.panic = true;
         paniccooldown = 60;
-
+        if(pSource.getEntity() instanceof LivingEntity entity) {
+            this.currentAngerTarget = entity;
+            List<DutyEntity> entities = this.level().getEntitiesOfClass(DutyEntity.class, AABB.ofSize(this.position(), 64, 64, 64));
+            List<DutyEntity> filter1 = entities.stream().filter((e) -> e.hasLineOfSight(currentAngerTarget) || BehaviorUtils.entityIsVisible(e.getBrain(), currentAngerTarget)).toList();
+            for (DutyEntity duty: filter1) {
+                duty.setTarget(currentAngerTarget);
+                duty.brain.setMemory(MemoryModuleType.ATTACK_TARGET, currentAngerTarget);
+            }
+        }
         return super.hurt(pSource, pAmount);
     }
     @Override
