@@ -7,33 +7,23 @@ import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.api.entity.IGunOperator;
 import com.tacz.guns.api.entity.ReloadState;
 import com.tacz.guns.api.entity.ShootResult;
-import com.tacz.guns.api.event.common.GunFireEvent;
 import com.tacz.guns.api.item.GunTabType;
 import com.tacz.guns.api.item.IGun;
-import com.tacz.guns.api.item.gun.FireMode;
-import com.tacz.guns.entity.EntityKineticBullet;
 import com.tacz.guns.entity.shooter.*;
 import com.tacz.guns.entity.sync.ModSyncedEntityData;
 import com.tacz.guns.init.ModItems;
 import com.tacz.guns.item.AmmoItem;
 import com.tacz.guns.item.ModernKineticGunItem;
-import com.tacz.guns.network.NetworkHandler;
-import com.tacz.guns.network.message.event.ServerMessageGunFire;
 import com.tacz.guns.resource.index.CommonGunIndex;
 import com.tacz.guns.resource.modifier.AttachmentCacheProperty;
 import com.tacz.guns.resource.modifier.AttachmentPropertyManager;
 import com.tacz.guns.resource.pojo.data.gun.Bolt;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import com.tacz.guns.resource.pojo.data.gun.GunData;
-import com.tacz.guns.resource.pojo.data.gun.InaccuracyType;
-import com.tacz.guns.sound.SoundManager;
-import com.tacz.guns.util.CycleTaskHelper;
-import it.unimi.dsi.fastutil.Pair;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.ItemTags;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.*;
 import net.minecraft.world.damagesource.DamageSource;
@@ -42,7 +32,6 @@ import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.behavior.Behavior;
-import net.minecraft.world.entity.ai.behavior.BehaviorUtils;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.npc.InventoryCarrier;
@@ -54,10 +43,7 @@ import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.LogicalSide;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.network.PacketDistributor;
 import net.tslat.smartbrainlib.api.SmartBrainOwner;
 import net.tslat.smartbrainlib.api.core.BrainActivityGroup;
 import net.tslat.smartbrainlib.api.core.SmartBrainProvider;
@@ -65,26 +51,24 @@ import net.tslat.smartbrainlib.api.core.behaviour.ExtendedBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.FirstApplicableBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.OneRandomBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeAttack;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.BowAttack;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
-import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.StrafeTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetWalkTargetToAttackTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.target.*;
 import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
 import org.jetbrains.annotations.NotNull;
 import software.bernie.geckolib.animatable.GeoEntity;
-import software.bernie.geckolib.animatable.SingletonGeoAnimatable;
-import software.bernie.geckolib.core.animatable.GeoAnimatable;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.AnimatableManager;
 import software.bernie.geckolib.core.animation.AnimationController;
 import software.bernie.geckolib.core.animation.RawAnimation;
 import software.bernie.geckolib.core.object.PlayState;
 import software.bernie.geckolib.network.GeckoLibNetwork;
-import software.bernie.geckolib.network.packet.EntityAnimTriggerPacket;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import javax.annotation.Nullable;
@@ -186,7 +170,6 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                     this.gameEvent(GameEvent.EQUIP);
                 }
             }
-
         }
     }
 
@@ -217,12 +200,12 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                             }
                         }
                     }));
-            //controllers.add(new AnimationController<>(this, "layered", 5, event -> {
-            //    if(this.isReloading) {
-            //        return event.setAndContinue(RawAnimation.begin().thenPlay("reload_upper"));
-            //    }
-            //    return event.setAndContinue(RawAnimation.begin().thenWait(0));
-            //}));
+            controllers.add(new AnimationController<>(this, "layered", 5, event -> {
+                if(this.isReloading) {
+                    return event.setAndContinue(RawAnimation.begin().thenPlayAndHold("reload_upper"));
+                }
+                return event.setAndContinue(RawAnimation.begin().thenWait(0));
+            }));
     }
 
     @Override
@@ -232,12 +215,13 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(new Behavior[]{
-                new Panic<>().panicFor((e, d) -> RandomSource.create().nextInt(20, 30)).setRadius(3).stopIf((e)->this.getTarget() != null && !BehaviorUtils.canSee(this, this.getTarget())).whenStarting((e)-> {panic = true; paniccooldown = RandomSource.create().nextInt(10, 20);}).runFor((e)-> 20),
-                new SetRandomWalkTarget<>().setRadius(16).speedModifier(0.8F).startCondition((e)-> !this.firing),
-                new SetRetaliateTarget<AbstractScavEntity>().isAllyIf((e, l) -> e.getType() == l.getType()).attackablePredicate((e) -> e.hasLineOfSight(this)).alertAlliesWhen((a, e) -> a.hurtMarked),
-                (new AvoidEntity<>()).noCloserThan(16).speedModifier(1.0f).avoiding((entity) -> entity instanceof Player).startCondition((e) -> this.tacz$data.reloadStateType.isReloading()).whenStarting((e)-> this.isAvoiding = true).whenStopping((e) -> this.isAvoiding = false),
-                (new LookAtTarget<>()).runFor((entity) -> RandomSource.create().nextIntBetweenInclusive(140, 300)).stopIf((e)-> this.getTarget() == null),
-                new MoveToWalkTarget<>()});
+                (new AvoidEntity<>()).avoiding((entity) -> {
+            return entity == this.getTarget();
+        }), (new LookAtTarget<>()).runFor((entity) -> {
+            return RandomSource.create().nextInt(40, 300);
+        }), (new StrafeTarget<>()).speedMod(0.8f).strafeDistance(6).stopStrafingWhen((entity) -> {
+            return this.getTarget() == null;
+        }).startCondition((e) -> this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get())), new MoveToWalkTarget()});
     }
 
     @Override
@@ -268,8 +252,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 this.dead = false;
                 this.getCombatTracker().recheckStatus();
                 Level level = this.level();
-                if (level instanceof ServerLevel) {
-                    ServerLevel serverlevel = (ServerLevel)level;
+                if (level instanceof ServerLevel serverlevel) {
                     if (entity == null || entity.killedEntity(serverlevel, this)) {
                         this.gameEvent(GameEvent.ENTITY_DIE);
                         this.dropAllDeathLoot(pDamageSource);
@@ -319,15 +302,16 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     }
 
     public BrainActivityGroup<? extends AbstractScavEntity> getFightTasks() {
-        return BrainActivityGroup.fightTasks(new Behavior[]{
-                new InvalidateAttackTarget<>(),
-                (new SetWalkTargetToAttackTarget<>()).startCondition((entity) ->( !isUsingGun() || !BehaviorUtils.canSee(this, Objects.requireNonNull(this.getTarget()))) && !panic),
-                new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{
-                        (new OneRandomBehaviour<>(new ExtendedBehaviour[]{
-                                (new TaczShootAttack<>(64).startCondition((x$0) ->  !isAvoiding && isUsingGun() && !isReloading && !panic && collectiveShots < getStateBurst() && this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {firing = true; collectiveShots++;}).stopIf((e) -> this.isReloading || this.panic || !this.hasLineOfSight(this.getTarget()))),
-                              //  (new TaczShootAttack<>(64).startCondition((x$0) -> !isAvoiding && heldGunType() != null && Objects.equals(heldGunType(), GunTabType.MG) && isUsingGun() && !isReloading && !panic && !this.hasLineOfSight(Objects.requireNonNull(this.getTarget()))).whenStarting((e)-> {}).stopIf((e) -> this.isReloading || this.panic || this.hasLineOfSight(this.getTarget())))
-                        })),
-                        (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> this.setAggressive(true)).whenStopping((entity) -> this.setAggressive(false))})});
+        return BrainActivityGroup.fightTasks(new Behavior[]{new InvalidateAttackTarget<>(), (new SetWalkTargetToAttackTarget<>()).startCondition((entity) -> {
+            return !this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get());}),
+
+            new FirstApplicableBehaviour<>(new ExtendedBehaviour[]{(new TaczShootAttack<>(64).startCondition((x$0) -> {
+            return this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get()) && !this.panic && this.collectiveShots <= this.getStateBurst();
+        })), (new AnimatableMeleeAttack<>(0)).whenStarting((entity) -> {
+            this.setAggressive(true);
+        }).whenStopping((entity) -> {
+            this.setAggressive(false);
+        })})});
     }
     public boolean isUsingGun() {
         return this.getMainHandItem().getItem() instanceof ModernKineticGunItem;
@@ -463,20 +447,21 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 }
             }
         }
-            if(inventory.hasAnyOf(Set.of(ModItems.MODERN_KINETIC_GUN.get())) && !(this.getMainHandItem().getItem() instanceof ModernKineticGunItem)) {
-                for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
-                    if (inventory.getItem(i).is(ModItems.MODERN_KINETIC_GUN.get())) {
-                        this.setItemSlotAndDropWhenKilled(EquipmentSlot.MAINHAND, inventory.getItem(i));
-                    }
-                }
-            } else if(!(this.getMainHandItem().getItem() instanceof ModernKineticGunItem)) {
-                for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
-                    if (inventory.getItem(i).getAttributeModifiers(EquipmentSlot.MAINHAND).containsKey(Attributes.ATTACK_DAMAGE)) {
-                        this.setItemSlotAndDropWhenKilled(EquipmentSlot.MAINHAND, inventory.getItem(i));
-                        //inventory.removeItem(i, 1);
-                    }
+        if(inventory.hasAnyOf(Set.of(ModItems.MODERN_KINETIC_GUN.get())) && !(this.getMainHandItem().getItem() instanceof ModernKineticGunItem)) {
+            for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
+                if (inventory.getItem(i).is(ModItems.MODERN_KINETIC_GUN.get())) {
+                    this.setItemSlotAndDropWhenKilled(EquipmentSlot.MAINHAND, inventory.getItem(i));
                 }
             }
+        } else if(!(this.getMainHandItem().getItem() instanceof ModernKineticGunItem)) {
+            for (int i = 0; i < inventory.getContainerSize() - 1; i++) {
+                if (inventory.getItem(i).getAttributeModifiers(EquipmentSlot.MAINHAND).containsKey(Attributes.ATTACK_DAMAGE)) {
+                    this.setItemSlotAndDropWhenKilled(EquipmentSlot.MAINHAND, inventory.getItem(i));
+                    //inventory.removeItem(i, 1);
+                }
+            }
+        }
+
         if(getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
             if(this.getMainHandItem().getOrCreateTag().getInt("GunCurrentAmmoCount") == 0) {
                 this.reload();

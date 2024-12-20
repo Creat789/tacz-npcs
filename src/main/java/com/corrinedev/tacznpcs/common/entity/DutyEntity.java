@@ -33,6 +33,7 @@ import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.HurtBySensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyLivingEntitySensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyPlayersSensor;
+import net.tslat.smartbrainlib.example.SBLSkeleton;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -49,12 +50,10 @@ public class DutyEntity extends AbstractScavEntity {
     private UUID persistentAngerTarget;
     private static final int ALERT_RANGE_Y = 10;
     private static final UniformInt ALERT_INTERVAL = TimeUtil.rangeOfSeconds(4, 6);
-    private int ticksUntilNextAlert;
     private boolean angry = false;
     static {
         DUTY = EntityType.Builder.of(DutyEntity::new, MobCategory.MISC).sized(0.65f, 1.95f).build("duty");
     }
-
     protected DutyEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
         if(this.getServer() != null) {
@@ -134,7 +133,7 @@ public class DutyEntity extends AbstractScavEntity {
 
     public void setTarget(@Nullable LivingEntity pLivingEntity) {
         if (this.getTarget() == null && pLivingEntity != null) {
-            this.ticksUntilNextAlert = ALERT_INTERVAL.sample(this.random);
+            ALERT_INTERVAL.sample(this.random);
         }
 
         if (pLivingEntity instanceof Player) {

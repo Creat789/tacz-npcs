@@ -19,6 +19,7 @@ public class Events {
     public static void onHitByScav(EntityHurtByGunEvent.Pre event) {
         if(event.getAttacker() instanceof AbstractScavEntity && event.getHurtEntity() instanceof Player) {
             event.setBaseAmount((float) (event.getBaseAmount() * Config.NPCDAMAGEPLAYER.get()));
+            System.out.println("PLAYER HIT");
         } else if (event.getAttacker() instanceof AbstractScavEntity) {
             event.setBaseAmount((float) (event.getBaseAmount() * Config.NPCDAMAGE.get()));
         }
