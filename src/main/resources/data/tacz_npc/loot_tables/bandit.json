@@ -86,7 +86,7 @@
             {
               "function": "minecraft:set_nbt",
               "ops": [],
-              "tag": "{GunId:\"tacz:rpg\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:1}",
+              "tag": "{GunId:\"tacz:rpg7\",GunFireMode:\"SEMI\",GunCurrentAmmoCount:1}",
               "conditions": []
             }
           ]

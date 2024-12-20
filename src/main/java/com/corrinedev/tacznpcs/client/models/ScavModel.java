@@ -3,6 +3,7 @@ package com.corrinedev.tacznpcs.client.models;
 import com.corrinedev.tacznpcs.common.entity.AbstractScavEntity;
 import com.tacz.guns.api.TimelessAPI;
 import com.tacz.guns.item.ModernKineticGunItem;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.constant.DataTickets;
 import software.bernie.geckolib.core.animatable.model.CoreGeoBone;
