@@ -221,7 +221,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         }),
                 new TargetOrRetaliate<AbstractScavEntity>().isAllyIf((e, l) -> l.getType() == e.getType()).attackablePredicate(l -> l != null && this.hasLineOfSight(l)).alertAlliesWhen((m, e) -> e != null && m.hasLineOfSight(e)).runFor((e) -> 999),
                 //new SetRetaliateTarget<>().isAllyIf((e, l) -> l.getType() == e.getType()),
-                new Panic<>().setRadius(16).speedMod((e) -> 1.1f).startCondition((e) -> this.getHealth() <= 10).whenStopping((e) -> panic = false).whenStarting( (e)-> panic = true).stopIf((e) -> this.getTarget() == null && !this.getTarget().hasLineOfSight(this)),
+                new Panic<>().setRadius(16).speedMod((e) -> 1.1f).startCondition((e) -> this.getHealth() <= 10).whenStopping((e) -> panic = false).whenStarting( (e)-> panic = true).stopIf((e) -> this.getTarget() == null && !this.getTarget().hasLineOfSight(this)).runFor((e) -> 20),
                 (new LookAtTarget<>()).runFor((entity) -> {
             return RandomSource.create().nextInt(40, 300);
         }), (new StrafeTarget<>()).speedMod(0.75f).strafeDistance(24).stopStrafingWhen((entity) -> {
