@@ -53,6 +53,7 @@ public class TaczShootAttack<E extends AbstractScavEntity> extends ExtendedBehav
                 entity.lookAt(EntityAnchorArgument.Anchor.EYES, entity.getTarget().getPosition(1f));
                 BehaviorUtils.lookAtEntity(entity, entity.getTarget());
                 if (entity.hasLineOfSight(entity.getTarget())) {
+                    entity.aim(true);
                     ShootResult result = entity.shoot(() -> (float) entity.getViewXRot(1f), () -> (float) entity.getViewYRot(1f));
                     if (result == ShootResult.SUCCESS) {
                         entity.firing = true;

@@ -1,5 +1,6 @@
 package com.corrinedev.tacznpcs.client.renderer;
 
+import com.corrinedev.tacznpcs.ClientConfig;
 import com.corrinedev.tacznpcs.common.entity.AbstractScavEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -10,17 +11,21 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.cache.object.GeoBone;
 import software.bernie.geckolib.core.object.Color;
 import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
+import software.bernie.geckolib.renderer.layer.BlockAndItemGeoLayer;
 import software.bernie.geckolib.renderer.layer.ItemArmorGeoLayer;
 import software.bernie.geckolib.util.RenderUtils;
 
@@ -28,9 +33,33 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
     public EntityRendererProvider.Context context;
     public float rotation = 0f;
     public ItemArmorGeoLayer<T> LAYER;
+    public BlockAndItemGeoLayer<T> ITEMLAYER;
     public ScavRenderer(EntityRendererProvider.Context renderManager, GeoModel<T> model) {
         super(renderManager, model);
         this.context = renderManager;
+        ITEMLAYER = new BlockAndItemGeoLayer<>(this) {
+            @Nullable
+            @Override
+            protected ItemStack getStackForBone(GeoBone bone, T animatable) {
+                return switch (bone.getName()) {
+                    case "third_person_right_hand" -> animatable.getMainHandItem();
+                    default -> null;
+                };
+            }
+            @Override
+            protected ItemDisplayContext getTransformTypeForStack(GeoBone bone, ItemStack stack, T animatable) {
+                return switch (bone.getName()) {
+                    default -> ItemDisplayContext.THIRD_PERSON_RIGHT_HAND;
+                };
+            }
+            @Override
+            protected void renderStackForBone(PoseStack poseStack, GeoBone bone, ItemStack stack, T animatable, MultiBufferSource bufferSource, float partialTick, int packedLight, int packedOverlay) {
+                // Rotate the item by 90 degrees on the X-axis
+                poseStack.mulPose(Axis.XP.rotationDegrees(-90f));
+                // Render the item with the provided parameters
+                super.renderStackForBone(poseStack, bone, stack, animatable, bufferSource, partialTick, packedLight, packedOverlay);
+            }
+        };
         LAYER = new ItemArmorGeoLayer<T>(this) {
             @Override
             protected ItemStack getArmorItemForBone(GeoBone bone, T animatable) {
@@ -71,6 +100,7 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
         };
 
         addRenderLayer(LAYER);
+        addRenderLayer(ITEMLAYER);
     }
 
     @Override
@@ -102,25 +132,36 @@ public class ScavRenderer<T extends AbstractScavEntity> extends GeoEntityRendere
     }
 
     @Override
+    public boolean shouldShowName(T animatable) {
+        if(!ClientConfig.SHOWNAMETAGS.get() || animatable.deadAsContainer) {
+            return false;
+        }
+        return super.shouldShowName(animatable);
+    }
+
+    @Override
     public void renderRecursively(PoseStack poseStack, T animatable, GeoBone bone, RenderType renderType, MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
         super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, red, green, blue, alpha);
-        if (bone.getName().equals("third_person_right_hand")) {
-            
-            poseStack.pushPose();
 
-            RenderUtils.translateMatrixToBone(poseStack, bone);
-            poseStack.translate(0.4, 0.8, -0.1);
-            poseStack.mulPose(Axis.XN.rotationDegrees(90));
-            poseStack.scale(1.15f, 1.15f, 1.15f);
-            ItemStack itemstack = animatable.getMainHandItem();
-            if(!itemstack.isEmpty()){
-                Minecraft minecraft = Minecraft.getInstance();
-                BakedModel model = minecraft.getItemRenderer().getModel(itemstack, minecraft.player.level(), minecraft.player, minecraft.player.getId() + ItemDisplayContext.THIRD_PERSON_RIGHT_HAND.ordinal());
-                context.getItemRenderer().render(itemstack, ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, false, poseStack, bufferSource, packedLight, packedOverlay, model);
-            }
+        /// DEPRECATED METHOD OF RENDERING HAND ITEMS
 
-            poseStack.popPose();
+        //if (bone.getName().equals("third_person_right_hand")) {
+       //
+       //    poseStack.pushPose();
 
-        }
+       //    RenderUtils.translateMatrixToBone(poseStack, bone);
+       //    poseStack.translate(0.4, 0.8, -0.1);
+       //    poseStack.mulPose(Axis.XN.rotationDegrees(90));
+       //    poseStack.scale(1.15f, 1.15f, 1.15f);
+       //    ItemStack itemstack = animatable.getMainHandItem();
+       //    if(!itemstack.isEmpty()){
+       //        Minecraft minecraft = Minecraft.getInstance();
+       //        BakedModel model = minecraft.getItemRenderer().getModel(itemstack, minecraft.player.level(), minecraft.player, minecraft.player.getId() + ItemDisplayContext.THIRD_PERSON_RIGHT_HAND.ordinal());
+       //        context.getItemRenderer().render(itemstack, ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, false, poseStack, bufferSource, packedLight, packedOverlay, model);
+       //    }
+
+       //    poseStack.popPose();
+
+       //}
     }
 }
