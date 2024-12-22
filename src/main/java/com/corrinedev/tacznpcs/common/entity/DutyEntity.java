@@ -54,7 +54,7 @@ public class DutyEntity extends AbstractScavEntity {
     private static final UniformInt ALERT_INTERVAL = TimeUtil.rangeOfSeconds(4, 6);
     private boolean angry = false;
     static {
-        DUTY = EntityType.Builder.of(DutyEntity::new, MobCategory.MISC).sized(0.65f, 1.95f).build("duty");
+        DUTY = EntityType.Builder.of(DutyEntity::new, MobCategory.MONSTER).sized(0.65f, 1.95f).build("duty");
     }
     protected DutyEntity(EntityType<? extends PathfinderMob> p_21683_, Level p_21684_) {
         super(p_21683_, p_21684_);
