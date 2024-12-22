@@ -1,6 +1,7 @@
 package com.corrinedev.tacznpcs.common.entity;
 
 import com.corrinedev.tacznpcs.Config;
+import com.tacz.guns.init.ModItems;
 import com.tacz.guns.item.ModernKineticGunItem;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.network.chat.Component;
@@ -28,6 +29,7 @@ import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.StrafeTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.target.TargetOrRetaliate;
 import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
@@ -112,13 +114,15 @@ public class DutyEntity extends AbstractScavEntity {
         paniccooldown = 60;
         if(pSource.getEntity() instanceof LivingEntity entity) {
             this.currentAngerTarget = entity;
-            List<DutyEntity> entities = this.level().getEntitiesOfClass(DutyEntity.class, AABB.ofSize(this.position(), 64, 64, 64));
+            List<DutyEntity> entities = this.level().getEntitiesOfClass(DutyEntity.class, AABB.ofSize(this.position(), 64, 16, 64));
             List<DutyEntity> filter1 = entities.stream().filter((e) -> e.hasLineOfSight(currentAngerTarget) || BehaviorUtils.entityIsVisible(e.getBrain(), currentAngerTarget)).toList();
             for (DutyEntity duty: filter1) {
                 duty.setTarget(currentAngerTarget);
+                duty.currentAngerTarget = entity;
                 duty.brain.setMemory(MemoryModuleType.ATTACK_TARGET, currentAngerTarget);
             }
         }
+
         return super.hurt(pSource, pAmount);
     }
     @Override
@@ -127,7 +131,7 @@ public class DutyEntity extends AbstractScavEntity {
                 new NearbyPlayersSensor<AbstractScavEntity>().setPredicate((p, e) -> e.attackers.contains(p)),
                 new HurtBySensor<>(),
                 new NearbyLivingEntitySensor<AbstractScavEntity>()
-                        .setPredicate((target, entity) ->
+                        .setPredicate((target, entity) -> target == this.currentAngerTarget ||
                                 target instanceof BanditEntity ||
                                         (target instanceof Monster) ||
                                         target.getType().getCategory() == MobCategory.MONSTER));
@@ -137,6 +141,9 @@ public class DutyEntity extends AbstractScavEntity {
     public void tick() {
         if(this.getTarget() !=null && this.angry) {
             angry = false;
+        }
+        if(this.currentAngerTarget != null && !this.currentAngerTarget.isAlive()) {
+            this.currentAngerTarget = null;
         }
         super.tick();
     }
@@ -151,5 +158,21 @@ public class DutyEntity extends AbstractScavEntity {
         }
 
         super.setTarget(pLivingEntity);
+    }
+
+    @Override
+    public BrainActivityGroup<? extends AbstractScavEntity> getCoreTasks() {
+        return BrainActivityGroup.coreTasks(new Behavior[]{
+                (new AvoidEntity<>()).noCloserThan(12).avoiding((entity) -> {
+                    return entity == this.getTarget();
+                }),
+                new TargetOrRetaliate<DutyEntity>().isAllyIf((e, l) -> l instanceof DutyEntity).attackablePredicate(l -> l != null && this.hasLineOfSight(l)).alertAlliesWhen((m, e) -> e != null && m.hasLineOfSight(e)).runFor((e) -> 999),
+                //new SetRetaliateTarget<>().isAllyIf((e, l) -> l.getType() == e.getType()),
+                new Panic<>().setRadius(16).speedMod((e) -> 1.1f).startCondition((e) -> this.getHealth() <= 10).whenStopping((e) -> panic = false).whenStarting( (e)-> panic = true).stopIf((e) -> this.getTarget() == null && !this.getTarget().hasLineOfSight(this)).runFor((e) -> 20),
+                (new LookAtTarget<>()).runFor((entity) -> {
+                    return RandomSource.create().nextInt(40, 300);
+                }), (new StrafeTarget<>()).speedMod(0.75f).strafeDistance(24).stopStrafingWhen((entity) -> {
+            return this.getTarget() == null || !this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get());
+        }).startCondition((e) -> this.getMainHandItem().is(ModItems.MODERN_KINETIC_GUN.get())), new MoveToWalkTarget<>()});
     }
 }

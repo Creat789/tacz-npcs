@@ -21,7 +21,9 @@ import com.tacz.guns.resource.pojo.data.gun.Bolt;
 import com.tacz.guns.resource.pojo.data.gun.BulletData;
 import com.tacz.guns.resource.pojo.data.gun.GunData;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.commands.KillCommand;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.util.RandomSource;
@@ -43,6 +45,7 @@ import net.minecraft.world.item.Equipable;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.fml.ModList;
 import net.tslat.smartbrainlib.api.SmartBrainOwner;
 import net.tslat.smartbrainlib.api.core.BrainActivityGroup;
@@ -134,6 +137,9 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         if(pSource.getEntity() instanceof LivingEntity living) {
             attackers.add(living);
         }
+        if(this.deadAsContainer) {
+            return false;
+        }
         return super.hurt(pSource, pAmount);
     }
 
@@ -141,6 +147,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public void addAdditionalSaveData(@NotNull CompoundTag pCompound) {
         super.addAdditionalSaveData(pCompound);
         this.writeInventoryToTag(pCompound);
+        pCompound.putBoolean("dead", deadAsContainer);
     }
 
     @Override
@@ -148,7 +155,9 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         super.readAdditionalSaveData(pCompound);
         resetSlots();
         this.readInventoryFromTag(pCompound);
-
+        if(pCompound.contains("dead")) {
+            this.deadAsContainer = pCompound.getBoolean("dead");
+        }
     }
     public void resetSlots() {
         for(EquipmentSlot slot : EquipmentSlot.values()) {
@@ -159,6 +168,14 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     @Override
     public boolean isDeadOrDying() {
         return super.isDeadOrDying();
+    }
+
+    @Override
+    public float getHealth() {
+        if(this.deadAsContainer) {
+            return 1.0f;
+        }
+        return super.getHealth();
     }
 
     @Override
@@ -182,12 +199,11 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
             {
                 return event.setAndContinue(
                         // If sprinting, play the run animation
-                        //this.isReloading ? RawAnimation.begin().thenPlayAndHold("reload_upper") :
                                 event.getAnimatable().isDeadOrDying() || event.getAnimatable().deadAsContainer ? RawAnimation.begin().thenPlayAndHold("death" + randomDeathNumber) :
                                         event.getAnimatable().isSprinting() ? RawAnimation.begin().thenLoop("run") :
                                 // If moving, play the walk animation
                                 event.isMoving() ? RawAnimation.begin().thenLoop("walk"):
-                                        firing ? RawAnimation.begin().thenLoop("aim_upper") :
+                                        tacz$data.isAiming ? RawAnimation.begin().thenLoop("aim_upper") :
 
                                                 // If not moving, play the idle animation
                                   RawAnimation.begin().thenLoop("idle"));
@@ -202,8 +218,11 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                         }
                     }));
             controllers.add(new AnimationController<>(this, "layered", 5, event -> {
-                if(this.isReloading) {
+                if(this.isReloading && !deadAsContainer) {
                     return event.setAndContinue(RawAnimation.begin().thenPlayAndHold("reload_upper"));
+                }
+                if(deadAsContainer) {
+                    event.resetCurrentAnimation();
                 }
                 return event.setAndContinue(RawAnimation.begin().thenWait(0));
             }));
@@ -257,24 +276,33 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 this.dead = false;
                 this.getCombatTracker().recheckStatus();
                 Level level = this.level();
-                if (level instanceof ServerLevel serverlevel) {
-                    if (entity == null || entity.killedEntity(serverlevel, this)) {
-                        this.gameEvent(GameEvent.ENTITY_DIE);
-                        this.dropAllDeathLoot(pDamageSource);
-                        this.createWitherRose(livingentity);
-                    }
-
-                    this.level().broadcastEntityEvent(this, (byte)3);
-                }
+               //if (level instanceof ServerLevel serverlevel) {
+               //    if (entity == null || entity.killedEntity(serverlevel, this)) {
+               //        this.gameEvent(GameEvent.ENTITY_DIE);
+               //        this.dropAllDeathLoot(pDamageSource);
+               //        this.createWitherRose(livingentity);
+               //    }
+               //    this.level().broadcastEntityEvent(this, (byte)3);
+               //}
 
                 //this.setPose(Pose.DYING);
             }
         }
     }
     @Override
+    public void kill() {
+        if(!this.deadAsContainer) {
+            super.kill();
+        } else {
+            this.remove(Entity.RemovalReason.KILLED);
+            this.gameEvent(GameEvent.ENTITY_DIE);
+        }
+    }
+
+    @Override
     protected void dropAllDeathLoot(DamageSource pDamageSource) {
         if(Config.DROPITEMS.get()) {
-
+            dropCustomDeathLoot(pDamageSource, 0, true);
         }
     }
 
@@ -293,6 +321,26 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
                 this.spawnAtLocation(itemstack);
                 this.setItemSlot(equipmentslot, ItemStack.EMPTY);
             }
+        }
+    }
+
+    @Override
+    public @org.jetbrains.annotations.Nullable ItemEntity spawnAtLocation(ItemStack pStack, float pOffsetY) {
+        if (pStack.isEmpty()) {
+            return null;
+        } else if (this.level().isClientSide) {
+            return null;
+        } else {
+            ItemEntity itementity = new ItemEntity(this.level(), this.getX(), this.getY() + (double)pOffsetY, this.getZ(), pStack);
+            itementity.setDefaultPickUpDelay();
+            itementity.lifespan = 1000;
+            if (this.captureDrops() != null) {
+                this.captureDrops().add(itementity);
+            } else {
+                this.level().addFreshEntity(itementity);
+            }
+
+            return itementity;
         }
     }
 
@@ -362,11 +410,11 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
     public int getStateRangedCooldown() {
         if(heldGunType() != null) {
             return switch (heldGunType()) {
-                case RIFLE -> 5;
-                case PISTOL -> 3;
+                case RIFLE -> 10;
+                case PISTOL -> 8;
                 case SNIPER -> 30;
-                case SHOTGUN -> 10;
-                case SMG, MG -> 1;
+                case SHOTGUN -> 20;
+                case SMG, MG -> 3;
                 case RPG -> 100;
                 default -> 60;
             };
@@ -422,20 +470,32 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
 
     @Override
     public void onAddedToWorld() {
+        if(this.deadAsContainer) {
+            if(this.getLastDamageSource() != null) {
+                dropCustomDeathLoot(this.getLastDamageSource(), 0, true);
+            } else {
+                dropCustomDeathLoot(this.damageSources().generic(), 0, true);
+            }
+            this.discard();
+        }
         super.onAddedToWorld();
     }
 
     @Override
     public void tick() {
-
         if(this.deadAsContainer) {
-            super.tick();
+            tickDeath();
+            //super.aiStep();
+            this.detectEquipmentUpdates();
+            super.baseTick();
+            setBoundingBox(AABB.ofSize(this.position(), 0.8, 0.5, 0.8));
             deadAsContainerTime++;
             if(this.deadAsContainerTime > Config.TICKITEMS.get()) {
                 this.discard();
             }
             return;
         }
+
         onTickServerSide();
         if(ModList.get().isLoaded("gundurability")) {
             if(this.getMainHandItem().getItem() instanceof ModernKineticGunItem) {
@@ -471,7 +531,7 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         }
 
         if(getMainHandItem().getItem() instanceof ModernKineticGunItem gun) {
-            if(this.getMainHandItem().getOrCreateTag().getInt("GunCurrentAmmoCount") == 0) {
+            if(this.getMainHandItem().getOrCreateTag().getInt("GunCurrentAmmoCount") == 0 && !this.getMainHandItem().getOrCreateTag().getBoolean("HasBulletInBarrel")) {
                 this.reload();
             }
         }
@@ -489,6 +549,8 @@ public abstract class AbstractScavEntity extends PathfinderMob implements GeoEnt
         if (firing) {
             if ((System.currentTimeMillis() - tacz$data.shootTimestamp) / 100 > getStateRangedCooldown()) {
                 collectiveShots = 0;
+                firing = false;
+                aim(false);
             }
         }
         if(rangedCooldown != 0) {

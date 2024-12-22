@@ -76,13 +76,16 @@
 					"parent": "right_arm",
 					"pivot": [-5, 22, 0],
 					"cubes": [
-						{"origin": [-7, 12, -2], "size": [3, 12, 4], "inflate": -0.01, "uv": [40, 16]}
+						{"origin": [-7, 12, -2], "size": [3, 12, 4], "inflate": -0.01, "uv": [43, 17]}
 					]
 				},
 				{
 					"name": "third_person_right_hand",
 					"parent": "right_arm",
-					"pivot": [-6, 13, -2]
+					"pivot": [-6, 13, -2],
+					"cubes": [
+						{"origin": [-7, 13, -3], "size": [2, 2, 2], "uv": [0, 0]}
+					]
 				},
 				{
 					"name": "left_leg",
